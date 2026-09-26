@@ -1,0 +1,26 @@
+node_modules/
+.next/
+out/
+build/
+
+# Secrets : ADMIN_CODE et clés Supabase. Jamais versionnés.
+.env
+.env.local
+.env*.local
+
+# Base SQLite locale : paris réels, recréée au démarrage.
+.data/
+
+# Documents internes de l'événement (le deck contient le mot de passe wifi).
+*.pdf
+
+next-env.d.ts
+*.tsbuildinfo
+.DS_Store
+.vercel
+
+# Fichier vide créé par accident.
+/File
+
+# Réglages Claude Code propres à cette machine (chemins locaux).
+.claude/settings.local.json

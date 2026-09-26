@@ -1,0 +1,61 @@
+import type { ReactNode } from "react";
+
+export function Rule({ thick = false }: { thick?: boolean }) {
+  return <hr className={thick ? "rule rule-thick" : "rule"} />;
+}
+
+/** Un chiffre et son libellé. Jamais groupé par quatre façon tableau de bord. */
+export function StatPair({
+  value,
+  label,
+  size = "md",
+}: {
+  value: ReactNode;
+  label: string;
+  size?: "md" | "lg";
+}) {
+  return (
+    <div>
+      <div
+        className="font-extrabold leading-none"
+        style={{
+          fontSize: size === "lg" ? "2.5rem" : "1.75rem",
+          fontStretch: "88%",
+          letterSpacing: "-0.03em",
+        }}
+      >
+        {value}
+      </div>
+      <div className="t-label mt-1 text-[color:var(--color-ink-muted)]">{label}</div>
+    </div>
+  );
+}
+
+export function Banner({ children }: { children: ReactNode }) {
+  return <div className="banner">{children}</div>;
+}
+
+/** Entier sans décimale, une décimale sinon. Évite « 33.0 % » sur l'écran projeté. */
+export function formatShare(share: number): string {
+  return Number.isInteger(share) ? String(share) : share.toFixed(1);
+}
+
+export function SectionHeading({
+  step,
+  title,
+  aside,
+}: {
+  step?: string;
+  title: string;
+  aside?: ReactNode;
+}) {
+  return (
+    <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
+      <h2 className="t-label text-[color:var(--color-ink-muted)]">
+        {step ? `${step} — ` : ""}
+        {title}
+      </h2>
+      {aside}
+    </div>
+  );
+}
