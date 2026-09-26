@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Rule, SectionHeading, StatPair } from "@/components/Bits";
 import { Leaderboard } from "@/components/Leaderboard";
+import { THIN_MARKET } from "@/lib/odds";
 import { ProjectGrid } from "@/components/ProjectGrid";
 import { TrackPicker } from "@/components/TrackPicker";
 import { useLive, type ConnectionStatus } from "@/lib/use-live";
@@ -59,6 +60,11 @@ export default function VotePage() {
           {votingOpen
             ? "Pick one track, then the project you think will win it. One bet per person — you can change it until voting closes."
             : "Voting is closed. Here is what the room predicted."}
+        </p>
+        <p className="t-meta mt-2 max-w-[65ch]">
+          Odds are pari-mutuel: they show what 1 unit on a project would return if it wins.
+          The fewer people backing a project, the longer its odds. Each track has its own
+          winner — the three do not compete with each other.
         </p>
       </section>
 
@@ -151,11 +157,19 @@ export default function VotePage() {
                       />
                     }
                   />
-                  <Leaderboard standings={selected.standings} voters={selected.voters} />
-                  {selected.voters === 0 && (
+                  <Leaderboard standings={selected.standings} />
+                  {selected.voters === 0 ? (
                     <p className="t-meta mt-3">
-                      No bets on this track yet. Be the first and the standings start moving.
+                      No bets on this track yet, so every project sits at the same odds. Be
+                      the first and they start moving.
                     </p>
+                  ) : (
+                    selected.voters < THIN_MARKET && (
+                      <p className="t-meta mt-3">
+                        Only {selected.voters} {selected.voters === 1 ? "bet" : "bets"} so far —
+                        odds will swing a lot until more people join.
+                      </p>
+                    )
                   )}
                 </section>
               )}

@@ -4,11 +4,27 @@ Le public parie sur le projet qui va gagner chaque track. Classements en direct,
 
 ## Le parcours
 
-1. **Une track** — *Three Minutes to Move*, *Animate the Shift* ou *Sell the Feeling*. Une seule, et ce choix est enregistré : la répartition des parieurs entre les trois tracks fait partie du résultat.
+1. **Une track** — *Three Minutes to Move*, *Animate the Shift* ou *Sell the Feeling*. Une seule, et ce choix est enregistré.
 2. **Un projet** dans cette track.
-3. Le classement de la track bouge en direct, sur le téléphone comme sur l'écran projeté.
+3. Les cotes bougent en direct, sur le téléphone comme sur l'écran projeté.
 
 Un pari par appareil. Modifiable à volonté — track comprise — tant que le vote est ouvert.
+
+**Chaque track a son gagnant. Il n'y a pas de vainqueur au-dessus des trois** : elles ne sont jamais comparées entre elles, et aucun écran n'affiche de part d'une track dans le total.
+
+## Les cotes
+
+Cote décimale pari-mutuel : ce que rapporterait une mise de 1 sur un projet s'il gagne. Moins un projet est soutenu, plus sa cote est longue.
+
+La formule brute d'un pool serait `total de la track ÷ paris sur le projet`. À l'échelle d'une soirée — de l'ordre de 70 parieurs sur trois tracks — elle casse : un projet sans pari donne une cote infinie, et une track à trois parieurs voit ses cotes tripler à chaque clic. On ajoute donc un pari virtuel sur chaque projet (lissage de Laplace) :
+
+```
+cote = (total de la track + nombre de projets) / (paris sur le projet + 1)
+```
+
+Conséquences voulues : la cote est toujours finie, jamais inférieure à 1.00, identique pour tous les projets tant que personne n'a parié — ce qui est exactement ce qu'on sait d'eux — et elle bouge d'autant plus doucement que la track est peu fournie. En dessous de 8 parieurs sur une track, l'interface prévient que les cotes vont encore beaucoup bouger.
+
+Tout est dans [`src/lib/odds.ts`](src/lib/odds.ts).
 
 ## Les trois écrans
 
@@ -124,7 +140,8 @@ Le cookie admin est un HMAC dont la clé est `ADMIN_CODE` : il n'est pas forgeab
 
 | Quoi | Où |
 |---|---|
-| Direction artistique (7 couleurs + typo) | `src/app/globals.css` → bloc `@theme` |
+| Direction artistique (couleurs + typo) | `src/app/globals.css` → bloc `@theme` |
+| Formule des cotes, plafond, seuil « peu de paris » | `src/lib/odds.ts` |
 | Noms et challenges des tracks | `/admin`, ou `src/lib/tracks.ts` pour le seed |
 | Fréquence de recalcul des classements (400 ms) | `src/lib/use-live.ts` → `THROTTLE_MS` |
 | Filet de sécurité si le canal meurt (15 s) | `src/lib/use-live.ts` → `SAFETY_POLL_MS` |

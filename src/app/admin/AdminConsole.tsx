@@ -294,7 +294,7 @@ function TrackPanel({
       {projects.length > 0 && (
         <div className="mt-8">
           <h3 className="t-label mb-3 text-[color:var(--color-ink-muted)]">Live standings</h3>
-          <Leaderboard standings={standings} voters={voters} />
+          <Leaderboard standings={standings} />
         </div>
       )}
 

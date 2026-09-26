@@ -2,100 +2,113 @@
 
 import { useLayoutEffect, useRef } from "react";
 
-import { formatShare } from "./Bits";
+import { formatOdds } from "@/lib/odds";
 import type { Standing } from "@/lib/types";
 
 type Props = {
   standings: Standing[];
-  /** Nombre de parieurs de la track — sert à distinguer « 0 % » de « pas encore de pari ». */
-  voters: number;
   /** Tronque la liste. `/board` n'en montre que quelques-uns, lisibles à trois mètres. */
   limit?: number;
   scale?: "compact" | "board";
 };
 
-export function Leaderboard({ standings, voters, limit, scale = "compact" }: Props) {
+export function Leaderboard({ standings, limit, scale = "compact" }: Props) {
   const rows = limit ? standings.slice(0, limit) : standings;
   const listRef = useFlip(rows.map((row) => row.projectId));
   const isBoard = scale === "board";
 
+  const columns = isBoard ? "2.5rem 1fr auto" : "2.5rem 1fr auto";
+
   return (
-    <ol
-      ref={listRef}
-      className="m-0 list-none p-0"
-      style={{ borderTop: "3px solid var(--color-ink)" }}
-    >
-      {rows.map((row) => {
-        const classes = ["rank-row"];
-        if (row.isMine) classes.push("rank-row-mine");
-        if (row.isWinner) classes.push("rank-row-correct");
+    <div>
+      {/* En-tête de colonnes : sans elle, un nombre comme 4.20 ne se lit pas
+          spontanément comme une cote. */}
+      <div
+        className="t-label grid items-baseline gap-3 px-3 pb-1.5 text-[color:var(--color-ink-muted)]"
+        style={{ gridTemplateColumns: columns }}
+      >
+        <span aria-hidden="true" />
+        <span>Project</span>
+        <span className="flex items-baseline gap-3 justify-self-end">
+          <span>Bets</span>
+          <span style={{ minWidth: "4.5ch", textAlign: "right" }}>Odds</span>
+        </span>
+      </div>
 
-        return (
-          <li
-            key={row.projectId}
-            data-flip-id={row.projectId}
-            className={classes.join(" ")}
-            style={
-              isBoard
-                ? { gridTemplateColumns: "2.5rem 1fr auto", padding: "0.7rem 0.75rem" }
-                : undefined
-            }
-          >
-            <span
-              className="rank-bar"
+      <ol
+        ref={listRef}
+        className="m-0 list-none p-0"
+        style={{ borderTop: "3px solid var(--color-ink)" }}
+      >
+        {rows.map((row) => {
+          const classes = ["rank-row"];
+          if (row.isMine) classes.push("rank-row-mine");
+          if (row.isWinner) classes.push("rank-row-win");
+
+          return (
+            <li
+              key={row.projectId}
+              data-flip-id={row.projectId}
+              className={classes.join(" ")}
               style={{
-                // Zéro parieur : barre à zéro plutôt qu'à pleine largeur, pour
-                // qu'une liste vierge ne ressemble pas à une égalité parfaite.
-                transform: `scaleX(${voters === 0 ? 0 : row.bets / voters})`,
+                gridTemplateColumns: columns,
+                ...(isBoard ? { padding: "0.7rem 0.75rem" } : null),
               }}
-            />
+            >
+              <span
+                className="rank-bar"
+                style={{ transform: `scaleX(${row.support})` }}
+              />
 
-            <span className="rank-num" style={isBoard ? { fontSize: "1rem" } : undefined}>
-              {String(row.rank).padStart(2, "0")}
-            </span>
+              <span className="rank-num" style={isBoard ? { fontSize: "1rem" } : undefined}>
+                {String(row.rank).padStart(2, "0")}
+              </span>
 
-            <span className="flex min-w-0 flex-col">
-              <span className="flex min-w-0 items-baseline gap-2">
+              <span className="flex min-w-0 flex-col">
+                <span className="flex min-w-0 items-baseline gap-2">
+                  <span
+                    className="truncate font-bold"
+                    style={{
+                      fontSize: isBoard ? "1.25rem" : "1rem",
+                      fontStretch: "92%",
+                      letterSpacing: "-0.02em",
+                    }}
+                  >
+                    {row.name}
+                  </span>
+                  {row.isWinner && <span className="t-label ink-win shrink-0">Winner</span>}
+                  {row.isMine && <span className="t-label ink-mine shrink-0">Your bet</span>}
+                </span>
+                {(row.team || row.brand) && (
+                  <span
+                    className="t-meta truncate"
+                    style={{ fontSize: isBoard ? "0.8125rem" : "0.75rem" }}
+                  >
+                    {[row.team, row.brand].filter(Boolean).join(" · ")}
+                  </span>
+                )}
+              </span>
+
+              <span className="flex items-baseline gap-3 justify-self-end">
+                <span className="t-meta" style={isBoard ? { fontSize: "0.875rem" } : undefined}>
+                  {row.bets}
+                </span>
                 <span
-                  className="truncate font-bold"
+                  className="rank-odds"
                   style={{
-                    fontSize: isBoard ? "1.25rem" : "1rem",
-                    fontStretch: "92%",
-                    letterSpacing: "-0.02em",
+                    fontSize: isBoard ? "1.75rem" : undefined,
+                    minWidth: "4.5ch",
+                    textAlign: "right",
                   }}
                 >
-                  {row.name}
+                  {formatOdds(row.odds)}
                 </span>
-                {row.isWinner && <span className="t-label shrink-0">Winner</span>}
-                {row.isMine && !row.isWinner && <span className="t-label shrink-0">Your bet</span>}
               </span>
-              {(row.team || row.brand) && (
-                <span className="t-meta truncate" style={{ fontSize: isBoard ? "0.8125rem" : "0.75rem" }}>
-                  {[row.team, row.brand].filter(Boolean).join(" · ")}
-                </span>
-              )}
-            </span>
-
-            <span className="flex items-baseline gap-3 justify-self-end">
-              <span className="t-meta" style={isBoard ? { fontSize: "0.875rem" } : undefined}>
-                {row.bets}
-              </span>
-              <span
-                className="rank-share"
-                style={{
-                  fontSize: isBoard ? "1.75rem" : undefined,
-                  minWidth: "4.5ch",
-                  textAlign: "right",
-                }}
-              >
-                {formatShare(row.share)}
-                <span style={{ fontSize: "0.5em", marginLeft: "0.15em" }}>%</span>
-              </span>
-            </span>
-          </li>
-        );
-      })}
-    </ol>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
 

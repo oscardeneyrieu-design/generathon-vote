@@ -35,11 +35,6 @@ export function Banner({ children }: { children: ReactNode }) {
   return <div className="banner">{children}</div>;
 }
 
-/** Entier sans décimale, une décimale sinon. Évite « 33.0 % » sur l'écran projeté. */
-export function formatShare(share: number): string {
-  return Number.isInteger(share) ? String(share) : share.toFixed(1);
-}
-
 export function SectionHeading({
   step,
   title,

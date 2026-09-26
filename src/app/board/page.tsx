@@ -1,8 +1,8 @@
 "use client";
 
-import { formatShare } from "@/components/Bits";
 import { JoinCode } from "@/components/JoinCode";
 import { Leaderboard } from "@/components/Leaderboard";
+import { formatOdds } from "@/lib/odds";
 import { useLive } from "@/lib/use-live";
 
 /** Au-delà, les colonnes deviennent illisibles de loin. */
@@ -59,7 +59,7 @@ export default function BoardPage() {
         >
           {isLoading
             ? Array.from({ length: 3 }).map((_, index) => <ColumnSkeleton key={index} />)
-            : live.board.tracks.map(({ track, standings, voters, share }) => {
+            : live.board.tracks.map(({ track, standings, voters }) => {
                 const winner = standings.find((standing) => standing.isWinner) ?? null;
 
                 return (
@@ -76,12 +76,12 @@ export default function BoardPage() {
                         {track.name}
                       </h2>
                       <p className="t-label mt-2 text-[color:var(--color-ink-muted)]">
-                        {voters} {voters === 1 ? "bettor" : "bettors"} · {formatShare(share)} % of the room
+                        {voters} {voters === 1 ? "bettor" : "bettors"}
                       </p>
                     </div>
 
                     {winner && (
-                      <div className="banner mb-3">
+                      <div className="banner banner-win mb-3">
                         <span className="t-label">Winner</span>
                         <span
                           className="font-extrabold"
@@ -89,7 +89,9 @@ export default function BoardPage() {
                         >
                           {winner.name}
                         </span>
-                        <span className="t-label">{formatShare(winner.share)} % called it</span>
+                        <span className="t-label">
+                          {winner.bets} {winner.bets === 1 ? "bet" : "bets"} at {formatOdds(winner.odds)}
+                        </span>
                       </div>
                     )}
 
@@ -99,7 +101,6 @@ export default function BoardPage() {
                       <>
                         <Leaderboard
                           standings={standings}
-                          voters={voters}
                           limit={ROWS_PER_TRACK}
                           scale="board"
                         />

@@ -1,11 +1,12 @@
 /**
- * Vérification du calcul des classements — `npm test`.
+ * Vérification du calcul des cotes et des classements — `npm test`.
  * Pure fonction, donc testable sans base : c'est la partie dont une erreur
- * passerait inaperçue en démo (pourcentages plausibles mais faux).
+ * passerait inaperçue en soirée (cotes plausibles mais fausses).
  */
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { computeOdds, formatOdds, MAX_ODDS } from "../src/lib/odds.ts";
 import { computeBoard } from "../src/lib/standings.ts";
 import type { Bet, Project, Track } from "../src/lib/types.ts";
 
@@ -29,24 +30,50 @@ const bet = (voter: string, track: string, project: string): Bet => ({
   project_id: project,
 });
 
-test("aucun pari : tout à zéro, aucune division par zéro", () => {
+// ------------------------------------------------------------------ cotes
+
+test("cote : jamais infinie, même sans aucun pari", () => {
+  // Une cote brute vaudrait total/0. Le lissage donne (0+3)/(0+1) = 3.
+  assert.equal(computeOdds(0, 0, 3), 3);
+  assert.equal(Number.isFinite(computeOdds(0, 50, 12)), true);
+});
+
+test("cote : jamais sous 1.00, même si tout le monde parie pareil", () => {
+  // Une cote sous 1 ferait perdre de l'argent à un pari gagnant.
+  assert.equal(computeOdds(5, 5, 3) >= 1, true);
+  assert.equal(computeOdds(100, 100, 3) >= 1, true);
+  assert.equal(computeOdds(1, 1, 1) >= 1, true);
+});
+
+test("cote : elle raccourcit quand le soutien monte", () => {
+  const outsider = computeOdds(1, 20, 12);
+  const milieu = computeOdds(5, 20, 12);
+  const favori = computeOdds(12, 20, 12);
+  assert.equal(outsider > milieu, true);
+  assert.equal(milieu > favori, true);
+});
+
+test("formatOdds : deux décimales sous 10, une au-dessus, plafond à 99+", () => {
+  assert.equal(formatOdds(2), "2.00");
+  assert.equal(formatOdds(4.2), "4.20");
+  assert.equal(formatOdds(12.5), "12.5");
+  assert.equal(formatOdds(MAX_ODDS), `${MAX_ODDS}+`);
+  assert.equal(formatOdds(480), `${MAX_ODDS}+`);
+});
+
+// ------------------------------------------------------------- classement
+
+test("aucun pari : tous les projets à la même cote, ce qui est tout ce qu'on sait", () => {
   const board = computeBoard(tracks, projects, [], "me");
   assert.equal(board.totalVoters, 0);
   assert.equal(board.myTrackId, null);
-  assert.deepEqual(
-    board.tracks.map((t) => [t.track.name, t.voters, t.share]),
-    [
-      ["Short Film", 0, 0],
-      ["Animation", 0, 0],
-      ["Ad", 0, 0],
-    ]
-  );
-  assert.deepEqual(board.tracks[0].standings.map((s) => s.share), [0, 0, 0]);
+  assert.deepEqual(board.tracks[0].standings.map((s) => s.odds), [3, 3, 3]);
+  assert.deepEqual(board.tracks[0].standings.map((s) => s.support), [0, 0, 0]);
 });
 
-test("les pourcentages d'un projet portent sur SA track, pas sur le total", () => {
-  // 3 parieurs sur t1, 1 seul sur t2. Delta est seul dans sa track : il doit
-  // afficher 100 %, pas 25 %, sinon son avance paraîtrait illégitime.
+test("les cotes d'un projet se calculent sur SA track, pas sur le total", () => {
+  // 3 parieurs sur t1, 1 seul sur t2. Delta est seul dans sa track : sa cote
+  // ne doit pas être diluée par les parieurs des autres tracks.
   const bets = [
     bet("v1", "t1", "p1"),
     bet("v2", "t1", "p1"),
@@ -57,30 +84,33 @@ test("les pourcentages d'un projet portent sur SA track, pas sur le total", () =
 
   assert.equal(board.totalVoters, 4);
   assert.deepEqual(
-    board.tracks[0].standings.map((s) => [s.name, s.bets, s.share]),
+    board.tracks[0].standings.map((s) => [s.name, s.bets, s.odds]),
     [
-      ["Alpha", 2, 66.7],
-      ["Bravo", 1, 33.3],
-      ["Charlie", 0, 0],
+      ["Alpha", 2, 2],
+      ["Bravo", 1, 3],
+      ["Charlie", 0, 6],
     ]
   );
-  assert.deepEqual(board.tracks[1].standings.map((s) => [s.name, s.share]), [["Delta", 100]]);
+  // t2 : (1 + 1) / (1 + 1) = 1.00
+  assert.deepEqual(board.tracks[1].standings.map((s) => [s.name, s.odds]), [["Delta", 1]]);
 });
 
-test("la part d'une track porte, elle, sur l'ensemble des parieurs", () => {
-  const bets = [bet("v1", "t1", "p1"), bet("v2", "t1", "p2"), bet("v3", "t2", "p4")];
-  const board = computeBoard(tracks, projects, bets, null);
+test("les trois tracks ne se classent pas entre elles", () => {
+  // Régression : aucune part d'une track dans le total ne doit réapparaître,
+  // sinon l'écran laisserait croire à un vainqueur au-dessus des trois.
+  const board = computeBoard(tracks, projects, [bet("v1", "t1", "p1")], null);
+  assert.equal("share" in board.tracks[0], false);
   assert.deepEqual(
-    board.tracks.map((t) => [t.track.name, t.voters, t.share]),
+    board.tracks.map((t) => [t.track.name, t.voters]),
     [
-      ["Short Film", 2, 66.7],
-      ["Animation", 1, 33.3],
-      ["Ad", 0, 0],
+      ["Short Film", 1],
+      ["Animation", 0],
+      ["Ad", 0],
     ]
   );
 });
 
-test("rangs partagés : deux ex æquo puis un 3e, pas de 2e", () => {
+test("rangs partagés : trois ex æquo, tous premiers", () => {
   const bets = [bet("v1", "t1", "p1"), bet("v2", "t1", "p2"), bet("v3", "t1", "p3")];
   const board = computeBoard(tracks, projects, bets, null);
   assert.deepEqual(
@@ -94,8 +124,6 @@ test("rangs partagés : deux ex æquo puis un 3e, pas de 2e", () => {
 });
 
 test("un appareil = un pari : changer d'avis remplace, track comprise", () => {
-  // La base garantit l'unicité par voter_id ; on vérifie ici que le repérage
-  // de « mon » pari suit bien la dernière ligne connue.
   const board = computeBoard(tracks, projects, [bet("moi", "t2", "p4")], "moi");
   assert.equal(board.myTrackId, "t2");
   assert.equal(board.myProjectId, "p4");
@@ -106,13 +134,10 @@ test("un appareil = un pari : changer d'avis remplace, track comprise", () => {
 test("tri stable à égalité : ordre alphabétique, pas de tremblement", () => {
   const shuffled = [projects[2], projects[0], projects[1]];
   const board = computeBoard(tracks, shuffled, [], null);
-  assert.deepEqual(
-    board.tracks[0].standings.map((s) => s.name),
-    ["Alpha", "Bravo", "Charlie"]
-  );
+  assert.deepEqual(board.tracks[0].standings.map((s) => s.name), ["Alpha", "Bravo", "Charlie"]);
 });
 
-test("le gagnant n'est marqué que dans sa propre track", () => {
+test("un gagnant par track, marqué dans la sienne seulement", () => {
   const settled = tracks.map((t) => (t.id === "t1" ? { ...t, winner_project_id: "p2" } : t));
   const board = computeBoard(settled, projects, [bet("v1", "t1", "p1")], "v1");
   assert.deepEqual(
@@ -124,11 +149,18 @@ test("le gagnant n'est marqué que dans sa propre track", () => {
     ]
   );
   assert.equal(board.tracks[1].standings.every((s) => !s.isWinner), true);
+  assert.equal(board.tracks[2].standings.every((s) => !s.isWinner), true);
+});
+
+test("avoir parié sur le gagnant : les deux états coexistent", () => {
+  const settled = tracks.map((t) => (t.id === "t1" ? { ...t, winner_project_id: "p1" } : t));
+  const board = computeBoard(settled, projects, [bet("moi", "t1", "p1")], "moi");
+  const row = board.tracks[0].standings[0];
+  assert.equal(row.isWinner, true);
+  assert.equal(row.isMine, true);
 });
 
 test("projet supprimé en cours de vote : aucune ligne fantôme", () => {
-  // Le pari pointe un projet absent de la liste (course entre suppression
-  // admin et rafraîchissement).
   const board = computeBoard(
     tracks,
     [projects[0]],
@@ -137,11 +169,33 @@ test("projet supprimé en cours de vote : aucune ligne fantôme", () => {
   );
   assert.equal(board.tracks[0].standings.length, 1);
   assert.equal(board.tracks[0].voters, 2);
-  assert.equal(board.tracks[0].standings[0].share, 50);
+  assert.equal(board.tracks[0].standings[0].support, 0.5);
 });
 
 test("la marque remonte jusqu'au classement, pour la track Ad", () => {
   const board = computeBoard(tracks, projects, [bet("v1", "t3", "p5")], null);
   assert.equal(board.tracks[2].standings[0].brand, "Jeep");
   assert.equal(board.tracks[0].standings[0].brand, null);
+});
+
+test("à 70 parieurs, les cotes restent dans une plage lisible", () => {
+  // Le cas réel : ~70 personnes, 12 projets par track. Aucune cote ne doit
+  // sortir en « 99+ » ni tomber sous 1.
+  const many: Project[] = Array.from({ length: 12 }, (_, i) => ({
+    id: `x${i}`,
+    track_id: "t1",
+    name: `Project ${i}`,
+    team: "",
+    brand: null,
+    position: i,
+  }));
+  const bets: Bet[] = Array.from({ length: 35 }, (_, i) =>
+    bet(`v${i}`, "t1", `x${i % 6}`)
+  );
+
+  const board = computeBoard(tracks, many, bets, null);
+  const odds = board.tracks[0].standings.map((s) => s.odds);
+
+  assert.equal(Math.min(...odds) >= 1, true);
+  assert.equal(Math.max(...odds) < MAX_ODDS, true);
 });

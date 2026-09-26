@@ -1,6 +1,6 @@
 "use client";
 
-import { formatShare } from "./Bits";
+import { formatOdds } from "@/lib/odds";
 import type { Project, Standing } from "@/lib/types";
 
 type Props = {
@@ -13,7 +13,7 @@ type Props = {
 };
 
 /**
- * Étape 2 : le projet. Ordre stable défini en admin, jamais trié par score —
+ * Étape 2 : le projet. Ordre stable défini en admin, jamais trié par cote —
  * une grille qui se réordonne sous le pouce fait parier sur le mauvais projet.
  */
 export function ProjectGrid({
@@ -39,7 +39,7 @@ export function ProjectGrid({
 
         const classes = ["tile"];
         if (isMine) classes.push("tile-mine");
-        if (isWinner) classes.push("tile-correct");
+        if (isWinner) classes.push("tile-win");
 
         return (
           <li key={project.id}>
@@ -53,19 +53,28 @@ export function ProjectGrid({
               <span className="flex w-full flex-col gap-1">
                 <span className="tile-name">{project.name}</span>
                 {(project.team || project.brand) && (
-                  <span className="text-xs leading-snug" style={{ opacity: 0.7 }}>
+                  <span className="text-xs leading-snug" style={{ opacity: 0.72 }}>
                     {[project.team, project.brand].filter(Boolean).join(" · ")}
                   </span>
                 )}
               </span>
 
-              <span className="flex w-full items-baseline justify-between gap-2">
-                <span className="t-label">
-                  {/* L'état ne repose jamais sur la seule inversion. */}
-                  {isWinner ? "Winner" : isMine ? "● Your bet" : ""}
+              <span className="flex w-full items-end justify-between gap-2">
+                <span className="t-label" style={{ opacity: 0.85 }}>
+                  {/* L'état ne repose jamais sur la seule couleur. */}
+                  {isWinner && isMine
+                    ? "Winner · yours"
+                    : isWinner
+                      ? "Winner"
+                      : isMine
+                        ? "● Your bet"
+                        : "Odds"}
                 </span>
-                <span className="text-sm font-bold" style={{ opacity: isMine ? 1 : 0.65 }}>
-                  {standing ? `${formatShare(standing.share)} %` : "—"}
+                <span
+                  className="font-extrabold leading-none"
+                  style={{ fontSize: "1.25rem", fontStretch: "90%", letterSpacing: "-0.02em" }}
+                >
+                  {standing ? formatOdds(standing.odds) : "—"}
                 </span>
               </span>
             </button>

@@ -37,8 +37,16 @@ export type Standing = {
   team: string;
   brand: string | null;
   bets: number;
-  /** 0–100, arrondi à une décimale. Part des paris de SA track, pas du total. */
-  share: number;
+  /**
+   * Cote décimale, jamais inférieure à 1.00 : ce que rapporterait une mise
+   * de 1 sur ce projet. Voir `computeOdds` pour le lissage.
+   */
+  odds: number;
+  /**
+   * Part des paris de SA track, 0–1. Sert uniquement à la largeur de la
+   * barre de fond — elle n'est plus affichée en chiffre nulle part.
+   */
+  support: number;
   /** Rang partagé : deux projets à égalité portent le même numéro. */
   rank: number;
   isWinner: boolean;
@@ -48,10 +56,12 @@ export type Standing = {
 export type TrackBoard = {
   track: Track;
   standings: Standing[];
-  /** Nombre de personnes ayant parié sur cette track. */
+  /**
+   * Nombre de personnes ayant parié sur cette track. Volontairement pas de
+   * part du total : les trois tracks ne se classent pas entre elles, chacune
+   * a son gagnant et il n'y a pas de vainqueur au-dessus des trois.
+   */
   voters: number;
-  /** Part de ces parieurs dans l'ensemble des parieurs, 0–100. */
-  share: number;
 };
 
 export type Board = {

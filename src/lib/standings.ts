@@ -1,11 +1,14 @@
+// Extension explicite : les tests tournent sous le type-stripping de Node,
+// qui n'a pas la résolution du bundler.
+import { computeOdds } from "./odds.ts";
 import type { Bet, Board, Project, Standing, Track, TrackBoard } from "./types";
 
 /**
- * Dénormalise paris + projets en trois classements parallèles.
+ * Dénormalise paris + projets en trois classements indépendants.
  *
- * Les pourcentages d'un projet sont calculés sur les parieurs de SA track,
- * pas sur le total : sinon une track peu suivie afficherait des scores
- * écrasés et son gagnant paraîtrait illégitime.
+ * Les trois tracks ne se comparent pas : chacune a son gagnant, aucune
+ * n'est « devant » une autre. Rien ici ne produit donc de part d'une track
+ * dans le total, ni de classement global.
  */
 export function computeBoard(
   tracks: Track[],
@@ -28,22 +31,19 @@ export function computeBoard(
     }
   }
 
-  const totalVoters = bets.length;
-
   const boards: TrackBoard[] = [...tracks]
     .sort((a, b) => a.position - b.position)
     .map((track) => {
       const voters = perTrack.get(track.id) ?? 0;
+      const inTrack = projects.filter((project) => project.track_id === track.id);
 
-      const sorted = projects
-        .filter((project) => project.track_id === track.id)
-        .sort((a, b) => {
-          const diff = (perProject.get(b.id) ?? 0) - (perProject.get(a.id) ?? 0);
-          if (diff !== 0) return diff;
-          // Sans ce second critère, les projets à zéro pari se réordonneraient
-          // à chaque recalcul et le classement tremblerait avant le premier vote.
-          return a.name.localeCompare(b.name, "en");
-        });
+      const sorted = [...inTrack].sort((a, b) => {
+        const diff = (perProject.get(b.id) ?? 0) - (perProject.get(a.id) ?? 0);
+        if (diff !== 0) return diff;
+        // Sans ce second critère, les projets à zéro pari se réordonneraient
+        // à chaque recalcul et le classement tremblerait avant le premier pari.
+        return a.name.localeCompare(b.name, "en");
+      });
 
       let previousBets = -1;
       let previousRank = 0;
@@ -61,20 +61,21 @@ export function computeBoard(
           team: project.team,
           brand: project.brand,
           bets: count,
-          share: voters === 0 ? 0 : Math.round((count / voters) * 1000) / 10,
+          odds: computeOdds(count, voters, inTrack.length),
+          support: voters === 0 ? 0 : count / voters,
           rank,
           isWinner: track.winner_project_id === project.id,
           isMine: myProjectId === project.id,
         } satisfies Standing;
       });
 
-      return {
-        track,
-        standings,
-        voters,
-        share: totalVoters === 0 ? 0 : Math.round((voters / totalVoters) * 1000) / 10,
-      } satisfies TrackBoard;
+      return { track, standings, voters } satisfies TrackBoard;
     });
 
-  return { tracks: boards, totalVoters, myTrackId, myProjectId };
+  return {
+    tracks: boards,
+    totalVoters: bets.length,
+    myTrackId,
+    myProjectId,
+  };
 }

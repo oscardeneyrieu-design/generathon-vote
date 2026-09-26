@@ -34,7 +34,9 @@ Pas l'esthétique sondage-en-ligne (Google Forms, Slido, Mentimeter) : cartes ar
 
 ## Design Principles
 
-Le chiffre est le sujet. Les pourcentages et les totaux sont le contenu principal de chaque écran, pas une annotation dans un coin : ils dictent la hiérarchie typographique, pas l'inverse.
+Le chiffre est le sujet. Les cotes sont le contenu principal de chaque écran, pas une annotation dans un coin : elles dictent la hiérarchie typographique, pas l'inverse. Et une cote doit rester lisible à soixante-dix parieurs comme à trois — jamais infinie, jamais sous 1.00, jamais en train de tripler à chaque clic.
+
+Trois courses, pas un championnat. Chaque track a son gagnant et les trois ne se comparent jamais : aucun écran n'affiche la part d'une track dans le total, ni quoi que ce soit qui suggère un vainqueur au-dessus des trois.
 
 Deux taps, pas un formulaire. Parier ne passe par aucune étape inutile : pas de bouton « valider », pas de confirmation, pas de pseudo à saisir. Le tap est le pari, et le re-tap est le changement d'avis.
 
@@ -42,7 +44,7 @@ Une track, assumée. Le choix de track est structurant, pas un filtre : il occup
 
 Lisible à trois mètres comme à trente centimètres. La même donnée sert un pouce sur un téléphone et une salle devant un vidéoprojecteur ; ce sont deux surfaces distinctes tirées du même état, pas une page responsive qui essaie les deux.
 
-Le noir et blanc porte l'état. Ouvert, fermé, parié, gagnant : tout se dit par inversion, épaisseur de trait et masse typographique. Aucune couleur n'est disponible pour se rattraper — ce qui rend aussi le produit trivial à réhabiller aux couleurs de l'événement.
+Deux couleurs, deux rôles. Le bleu ne dit qu'une chose — « toi », ta track et ton pari — et le rouge une seule autre — « résultat », le gagnant annoncé. Tout le reste tient en noir et blanc, par inversion et épaisseur de trait. Une couleur qui ne porte pas de rôle n'entre pas dans le système, et aucun état ne repose sur la couleur seule.
 
 Aucun écran n'affirme avant de savoir. Tant que l'état n'est pas lu, les trois surfaces montrent un chargement, jamais une valeur par défaut : dire « vote fermé » pendant une demi-seconde sur l'écran projeté est un mensonge que personne ne rattrape.
 

@@ -1,10 +1,21 @@
 # Design
 
-Affiche suisse : encre noire sur papier blanc cassé, grotesque à axe de largeur variable, filets noirs épais, grain d'impression. Strictement achromatique — aucune couleur n'existe dans le système, donc tout état passe par l'inversion, l'épaisseur et la masse.
+Affiche suisse : encre noire sur papier blanc cassé, grotesque à axe de largeur variable, filets noirs épais, grain d'impression. Deux accents seulement, chacun attaché à un rôle — tout le reste passe par l'inversion, l'épaisseur et la masse.
 
 ## Color
 
-Tous les tokens sont en OKLCH à chroma 0. Le chroma nul est une contrainte du brief, pas un défaut : il interdit de régler un problème de hiérarchie en ajoutant une teinte.
+Les neutres sont en OKLCH à chroma 0, et le restent : le chroma nul interdit de régler un problème de hiérarchie en ajoutant une teinte au hasard.
+
+Deux accents s'ajoutent, et deux seulement. Chacun porte un rôle, jamais une décoration :
+
+- **Bleu — « toi »** : ta track, ton pari. C'est l'état que chaque personne voit le plus souvent, et le seul qui la concerne personnellement.
+- **Rouge — « résultat »** : le gagnant annoncé. Trois occurrences dans la soirée, pour l'évènement le plus important de l'écran.
+
+Une tuile pariée est un aplat bleu ; un gagnant, un aplat rouge. Avoir parié sur le gagnant se lit comme un aplat rouge cerclé de bleu. Ailleurs, les accents n'apparaissent qu'en teinte claire derrière une ligne de classement, ou en couleur de libellé sur papier.
+
+Ce qui reste interdit : colorer une cote (la couleur qualifierait le chiffre alors qu'elle qualifie la ligne), colorer les trois tracks pour les distinguer (elles ne se classent pas entre elles), et faire porter un état à la seule couleur — `● YOUR BET` et `WINNER` accompagnent toujours l'aplat.
+
+Contrastes vérifiés : 7.7:1 pour les deux accents contre le papier, dans les deux sens (libellé coloré sur papier, papier sur aplat coloré).
 
 | Token | Valeur | Rôle |
 |---|---|---|
@@ -13,8 +24,10 @@ Tous les tokens sont en OKLCH à chroma 0. Le chroma nul est une contrainte du b
 | `--ink` | `oklch(0.155 0 0)` | Texte et filets. Quasi-noir, pas `#000` : le noir pur vibre sur blanc. |
 | `--ink-muted` | `oklch(0.430 0 0)` | Libellés secondaires et métadonnées. 7.2:1 sur `--paper`, au-dessus du minimum AA. |
 | `--ink-faint` | `oklch(0.620 0 0)` | Texte désactivé et séparateurs uniquement. Jamais de texte porteur de sens. |
-| `--inverse-paper` | `oklch(0.155 0 0)` | Fond des blocs inversés (équipe sélectionnée, bonne réponse). |
-| `--inverse-ink` | `oklch(0.968 0 0)` | Texte sur bloc inversé. |
+| `--color-mine` | `oklch(0.42 0.13 252)` | Bleu « toi » : aplat d'une tuile pariée, libellé `● YOUR BET`. |
+| `--color-mine-tint` | `oklch(0.905 0.045 252)` | Barre de fond de ta ligne dans le classement. |
+| `--color-win` | `oklch(0.44 0.17 27)` | Rouge « résultat » : aplat du gagnant, bandeau d'annonce. |
+| `--color-win-tint` | `oklch(0.905 0.055 27)` | Barre de fond de la ligne gagnante. |
 
 `--ink-faint` sur `--paper` vaut 4.0:1 : réservé au texte désactivé et aux filets, interdit pour du contenu.
 
@@ -26,16 +39,19 @@ Le produit est destiné à être intégré à generathon.tech, donc à changer d
 
 Aucune couleur sémantique. L'état se lit par la forme :
 
-- **Non parié** — filet 2px, papier, texte encre.
-- **Parié** — bloc inversé plein, plus la mention `● YOUR BET` (`● YOUR TRACK` sur une track), pour ne pas dépendre de la seule inversion.
+- **Non parié** — filet 2px, papier, texte encre. La tuile affiche sa cote sous le libellé `ODDS`.
+- **Parié** — aplat bleu, texte papier, plus la mention `● YOUR BET` (`● YOUR TRACK` sur une track).
 - **Vote fermé** — filets en `--ink-faint`, opacité 0.55, curseur interdit, bandeau `CLOSED` en tête de page.
-- **Gagnant** — bloc inversé plus filet extérieur 3px avec un décalage de 3px, plus le libellé `WINNER`. Se distingue de « parié » par le double contour.
+- **Gagnant** — aplat rouge, double contour à 3px de décalage, libellé `WINNER`.
+- **Gagnant et parié** — aplat rouge, anneau bleu, libellé `WINNER · YOURS`. Les deux informations coexistent au lieu que l'une écrase l'autre.
 - **Chargement** — squelettes en `--paper-sunk` à la place du contenu. Jamais une valeur par défaut : aucun écran n'annonce « vote fermé » avant d'avoir lu la base.
 - **Focus** — `outline: 3px solid var(--ink); outline-offset: 3px`. Identique partout, jamais supprimé.
 
 ## Typography
 
-Une seule famille : **Archivo** (Google, variable, axe `wdth` 62–125). Le grotesque néo-suisse couvre titres, libellés, boutons et données ; l'axe de largeur fournit le contraste d'affiche sans introduire une seconde police. Chiffres en `font-variant-numeric: tabular-nums` partout — les pourcentages changent en direct et ne doivent pas faire danser la mise en page.
+Une seule famille : **Archivo** (Google, variable, axe `wdth` 62–125). Le grotesque néo-suisse couvre titres, libellés, boutons et données ; l'axe de largeur fournit le contraste d'affiche sans introduire une seconde police. Chiffres en `font-variant-numeric: tabular-nums` partout — les cotes changent en direct et ne doivent pas faire danser la mise en page.
+
+Les colonnes du classement sont surmontées d'un en-tête `PROJECT / BETS / ODDS` : sans lui, un nombre comme `4.20` ne se lit pas spontanément comme une cote.
 
 Échelle fixe en rem (registre produit), ratio ~1.2, sauf deux exceptions assumées : le score de l'écran de projection et le titre de manche, qui sont du registre affiche et utilisent `clamp()` plafonné à 6rem.
 
@@ -44,7 +60,7 @@ Une seule famille : **Archivo** (Google, variable, axe `wdth` 62–125). Le grot
 | Score projection | `clamp(3.5rem, 11vw, 6rem)` | 800 / wdth 80 | `-0.035em` |
 | Titre de manche | `clamp(1.75rem, 5vw, 3rem)` | 800 / wdth 85 | `-0.03em` |
 | Nom d'équipe (grille) | `1.0625rem` | 700 / wdth 100 | `-0.01em` |
-| Pourcentage (liste) | `1.5rem` | 800 / wdth 90 | `-0.02em` |
+| Cote (liste) | `1.5rem` | 800 / wdth 90 | `-0.02em` |
 | Corps | `0.9375rem` | 400 | `0` |
 | Libellé / méta | `0.75rem` | 600, `uppercase` | `0.08em` |
 

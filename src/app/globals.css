@@ -11,6 +11,15 @@
   --color-ink-muted: oklch(0.43 0 0);
   --color-ink-faint: oklch(0.62 0 0);
 
+  /* Deux accents, deux rôles, rien d'autre. Le bleu dit « toi » : ta track,
+     ton pari. Le rouge dit « résultat » : le gagnant annoncé. Aucune des
+     deux ne sert à décorer, et aucun état ne repose sur elles seules — un
+     libellé les accompagne toujours. */
+  --color-mine: oklch(0.42 0.13 252);
+  --color-mine-tint: oklch(0.905 0.045 252);
+  --color-win: oklch(0.44 0.17 27);
+  --color-win-tint: oklch(0.905 0.055 27);
+
   --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -228,9 +237,10 @@ body {
   }
 }
 
-/* Vote confirmé : pas de transition, le retour précède la perception. */
+/* Pari confirmé : pas de transition, le retour précède la perception. */
 .tile-mine {
-  background: var(--color-ink);
+  background: var(--color-mine);
+  border-color: var(--color-mine);
   color: var(--color-paper);
   transition: none;
 }
@@ -243,16 +253,31 @@ body {
 }
 
 .tile-mine:disabled {
-  background: var(--color-ink);
+  background: var(--color-mine);
+  border-color: var(--color-mine);
   color: var(--color-paper);
-  border-color: var(--color-ink);
-  opacity: 0.75;
+  opacity: 0.8;
 }
 
-/* Bonne réponse : double contour, distinct de « voté » sans recourir à la
-   couleur ni au seul remplissage. */
-.tile-correct {
-  box-shadow: 0 0 0 3px var(--color-paper), 0 0 0 6px var(--color-ink);
+/* Gagnant : le rouge, plus un double contour. La couleur seule ne porte
+   jamais l'état — le contour le dit aussi, et le libellé WINNER également. */
+.tile-win,
+.tile-win:disabled {
+  background: var(--color-win);
+  border-color: var(--color-win);
+  color: var(--color-paper);
+  opacity: 1;
+  box-shadow:
+    0 0 0 3px var(--color-paper),
+    0 0 0 6px var(--color-win);
+}
+
+/* Avoir parié sur le gagnant : fond rouge du résultat, anneau bleu du pari. */
+.tile-win.tile-mine,
+.tile-win.tile-mine:disabled {
+  box-shadow:
+    0 0 0 3px var(--color-paper),
+    0 0 0 6px var(--color-mine);
 }
 
 .tile-name {
@@ -290,17 +315,16 @@ body {
 }
 
 .rank-row-mine .rank-bar {
-  background: var(--color-ink);
-  opacity: 0.16;
+  background: var(--color-mine-tint);
 }
 
-.rank-row-correct {
+.rank-row-win {
   border-bottom-width: var(--rule-thick);
+  border-bottom-color: var(--color-win);
 }
 
-.rank-row-correct .rank-bar {
-  background: var(--color-ink);
-  opacity: 0.28;
+.rank-row-win .rank-bar {
+  background: var(--color-win-tint);
 }
 
 .rank-num {
@@ -309,12 +333,23 @@ body {
   color: var(--color-ink-muted);
 }
 
-.rank-share {
+/* La cote. Le chiffre reste en encre : le colorer ferait croire que la
+   couleur qualifie la cote, alors qu'elle qualifie la ligne. */
+.rank-odds {
   font-size: 1.5rem;
   font-weight: 800;
   font-stretch: 90%;
   letter-spacing: -0.02em;
   line-height: 1;
+}
+
+/* Libellés d'état sur fond papier. */
+.ink-mine {
+  color: var(--color-mine);
+}
+
+.ink-win {
+  color: var(--color-win);
 }
 
 /* ---------------------------------------------------------------- banners */
@@ -327,6 +362,12 @@ body {
   padding: 0.6rem 1rem;
   background: var(--color-ink);
   color: var(--color-paper);
+}
+
+/* Annonce d'un gagnant : le seul endroit où le rouge occupe une pleine
+   largeur. Il ne se produit que trois fois dans la soirée. */
+.banner-win {
+  background: var(--color-win);
 }
 
 /* --------------------------------------------------------------- skeleton */

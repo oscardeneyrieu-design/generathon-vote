@@ -1,6 +1,5 @@
 "use client";
 
-import { formatShare } from "./Bits";
 import type { TrackBoard } from "@/lib/types";
 
 type Props = {
@@ -17,6 +16,9 @@ type Props = {
  * Étape 1 : une track, une seule. Les trois choix sont côte à côte plutôt
  * qu'en menu déroulant — c'est le choix structurant du parcours, il mérite
  * la pleine largeur et le nom complet du challenge.
+ *
+ * Aucune part du total n'est affichée ici : les trois tracks ne se classent
+ * pas entre elles, chacune a son gagnant.
  */
 export function TrackPicker({
   boards,
@@ -31,7 +33,7 @@ export function TrackPicker({
       className="grid list-none gap-2 p-0"
       style={{ gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))" }}
     >
-      {boards.map(({ track, voters, share }) => {
+      {boards.map(({ track, voters }) => {
         const isSelected = selectedTrackId === track.id;
         const isBet = betTrackId === track.id;
         const count = projectCounts.get(track.id) ?? 0;
@@ -47,23 +49,23 @@ export function TrackPicker({
               onClick={() => onSelect(track.id)}
             >
               <span className="flex w-full flex-col gap-1.5">
-                <span className="t-label" style={{ opacity: 0.7 }}>
+                <span
+                  // Le bleu ne désigne que toi : il n'apparaît que sur la
+                  // track qui porte ton pari, et seulement quand la tuile
+                  // n'est pas déjà remplie en bleu.
+                  className={`t-label${isBet && !isSelected ? " ink-mine" : ""}`}
+                  style={{ opacity: isSelected ? 0.85 : 1 }}
+                >
                   {isBet ? "● Your track" : `${count} ${count === 1 ? "project" : "projects"}`}
                 </span>
                 <span className="tile-name">{track.name}</span>
-                <span
-                  className="text-[0.8125rem] leading-snug"
-                  style={{ opacity: isSelected ? 0.8 : 0.72 }}
-                >
+                <span className="text-[0.8125rem] leading-snug" style={{ opacity: 0.75 }}>
                   {track.subtitle}
                 </span>
               </span>
 
-              <span className="flex w-full items-baseline justify-between gap-2">
-                <span className="t-label" style={{ opacity: 0.7 }}>
-                  {voters} {voters === 1 ? "bettor" : "bettors"}
-                </span>
-                <span className="text-sm font-bold">{formatShare(share)} %</span>
+              <span className="t-label w-full" style={{ opacity: 0.85 }}>
+                {voters} {voters === 1 ? "bettor" : "bettors"}
               </span>
             </button>
           </li>
