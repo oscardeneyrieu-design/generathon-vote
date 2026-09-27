@@ -29,17 +29,30 @@ export default function BoardPage() {
     <main className="board mx-auto flex min-h-dvh w-full max-w-[110rem] flex-col px-6 py-6">
       <header className="flex flex-wrap items-end justify-between gap-6 pb-5">
         <div className="min-w-0 flex-1">
-          <div className="t-label text-[color:var(--color-ink-muted)]">{kicker}</div>
+          <div
+            className={`t-label${
+              live.votingOpen && !isLoading
+                ? " ink-accent"
+                : !live.votingOpen && !isLoading && live.status !== "error"
+                  ? " ink-result"
+                  : " text-[color:var(--color-ink-muted)]"
+            }`}
+          >
+            {kicker}
+          </div>
           <h1 className="t-score mt-2">Public vote</h1>
         </div>
 
         <div className="text-right">
           <div
+            // Le pouls de la salle, en bleu : c'est le chiffre qui bouge tout
+            // seul pendant toute la soirée.
             className="font-extrabold leading-none"
             style={{
               fontSize: "clamp(2.5rem, 7vw, 4.5rem)",
               fontStretch: "80%",
               letterSpacing: "-0.035em",
+              color: isLoading ? undefined : "var(--color-accent)",
             }}
           >
             {isLoading ? "—" : live.board.totalVoters}

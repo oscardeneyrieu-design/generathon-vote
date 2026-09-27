@@ -47,7 +47,9 @@ export function SectionHeading({
   return (
     <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
       <h2 className="t-label text-[color:var(--color-ink-muted)]">
-        {step ? `${step} — ` : ""}
+        {/* Le numéro d'étape en bleu : il signale la progression du parcours,
+            qui est la seule chose sur laquelle la personne peut agir. */}
+        {step && <span className="ink-accent">{step} — </span>}
         {title}
       </h2>
       {aside}

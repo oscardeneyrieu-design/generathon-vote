@@ -31,7 +31,9 @@ export function Leaderboard({ standings, limit, scale = "compact" }: Props) {
         <span>Project</span>
         <span className="flex items-baseline gap-3 justify-self-end">
           <span>Bets</span>
-          <span style={{ minWidth: "4.5ch", textAlign: "right" }}>Odds</span>
+          <span className="ink-accent" style={{ minWidth: "4.5ch", textAlign: "right" }}>
+            Odds
+          </span>
         </span>
       </div>
 
@@ -76,8 +78,8 @@ export function Leaderboard({ standings, limit, scale = "compact" }: Props) {
                   >
                     {row.name}
                   </span>
-                  {row.isWinner && <span className="t-label ink-win shrink-0">Winner</span>}
-                  {row.isMine && <span className="t-label ink-mine shrink-0">Your bet</span>}
+                  {row.isWinner && <span className="t-label ink-result shrink-0">Winner</span>}
+                  {row.isMine && <span className="t-label ink-accent shrink-0">Your bet</span>}
                 </span>
                 {(row.team || row.brand) && (
                   <span

@@ -23,7 +23,11 @@ export default function VotePage() {
     if (board.myTrackId) setBrowsingTrackId(board.myTrackId);
   }, [board.myTrackId]);
 
-  const selectedTrackId = browsingTrackId ?? board.myTrackId;
+  // Sans pari ni sélection, on ouvre sur la première track plutôt que sur
+  // rien : autrement un nouvel arrivant n'a sous les yeux que trois tuiles
+  // et pas une seule cote, alors que les cotes sont le sujet de la page.
+  const selectedTrackId =
+    browsingTrackId ?? board.myTrackId ?? board.tracks[0]?.track.id ?? null;
   const selected = board.tracks.find((entry) => entry.track.id === selectedTrackId) ?? null;
 
   const projectCounts = useMemo(() => {
@@ -69,7 +73,7 @@ export default function VotePage() {
       </section>
 
       {!votingOpen && (
-        <div className="banner mb-6">
+        <div className="banner banner-closed mb-6">
           <span className="t-label">Closed</span>
           <span className="font-bold" style={{ fontStretch: "92%" }}>
             No more bets
@@ -182,7 +186,7 @@ export default function VotePage() {
         <Rule />
         <p className="t-meta pt-3">
           Anonymous, one bet per device.{" "}
-          <Link href="/board" className="font-semibold underline underline-offset-2">
+          <Link href="/board" className="link-accent">
             Big screen
           </Link>
         </p>
@@ -202,8 +206,10 @@ function ConnectionDot({ status }: { status: ConnectionStatus }) {
         style={{
           width: 8,
           height: 8,
-          background: status === "live" ? "var(--color-ink)" : "transparent",
-          boxShadow: "inset 0 0 0 2px var(--color-ink)",
+          background: status === "live" ? "var(--color-accent)" : "transparent",
+          boxShadow: `inset 0 0 0 2px ${
+            status === "live" ? "var(--color-accent)" : "var(--color-ink-faint)"
+          }`,
         }}
       />
       {copy}

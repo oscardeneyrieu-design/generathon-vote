@@ -6,16 +6,18 @@ Affiche suisse : encre noire sur papier blanc cassé, grotesque à axe de largeu
 
 Les neutres sont en OKLCH à chroma 0, et le restent : le chroma nul interdit de régler un problème de hiérarchie en ajoutant une teinte au hasard.
 
-Deux accents s'ajoutent, et deux seulement. Chacun porte un rôle, jamais une décoration :
+Deux familles s'ajoutent, et deux seulement :
 
-- **Bleu — « toi »** : ta track, ton pari. C'est l'état que chaque personne voit le plus souvent, et le seul qui la concerne personnellement.
-- **Rouge — « résultat »** : le gagnant annoncé. Trois occurrences dans la soirée, pour l'évènement le plus important de l'écran.
+- **Bleu — le pari en cours.** Les barres de tous les classements, l'indicateur « Live », les numéros d'étape, l'en-tête `ODDS`, les liens, le total de parieurs sur l'écran projeté. À sa plus forte intensité, en aplat plein : ton propre pari.
+- **Rouge — ce qui est décidé.** Le gagnant annoncé, et la clôture des paris. Deux aplats pleine largeur dans toute la soirée.
 
-Une tuile pariée est un aplat bleu ; un gagnant, un aplat rouge. Avoir parié sur le gagnant se lit comme un aplat rouge cerclé de bleu. Ailleurs, les accents n'apparaissent qu'en teinte claire derrière une ligne de classement, ou en couleur de libellé sur papier.
+Trois paliers de bleu, parce qu'un seul ne suffisait pas : `soft` pour les barres et la track consultée, `mid` pour ta ligne au classement, plein pour ton pari. La règle qui a échoué en première version était « le bleu ne désigne que toi » — appliquée strictement, elle rendait l'écran d'accueil entièrement noir et blanc, puisqu'un nouvel arrivant n'a encore rien choisi. La couleur doit être présente dès la première seconde, sans attendre une interaction.
 
-Ce qui reste interdit : colorer une cote (la couleur qualifierait le chiffre alors qu'elle qualifie la ligne), colorer les trois tracks pour les distinguer (elles ne se classent pas entre elles), et faire porter un état à la seule couleur — `● YOUR BET` et `WINNER` accompagnent toujours l'aplat.
+Trois états distincts sur une tuile de track, à ne pas confondre : consultée (cadre bleu 4px, fond `soft`), pariée (aplat bleu plein), ni l'un ni l'autre (filet noir). Un aplat plein sur une track simplement consultée laisserait croire qu'on a parié en se contentant de regarder.
 
-Contrastes vérifiés : 7.7:1 pour les deux accents contre le papier, dans les deux sens (libellé coloré sur papier, papier sur aplat coloré).
+Ce qui reste interdit : colorer une cote (la couleur qualifierait le chiffre alors qu'elle qualifie la ligne), donner une couleur propre à chacune des trois tracks (elles ne se classent pas entre elles), et faire porter un état à la seule couleur — `● YOUR BET` et `WINNER` accompagnent toujours l'aplat.
+
+Contrastes vérifiés au calcul, pas à l'œil : 7.73:1 pour les deux accents pleins contre le papier dans les deux sens, 5.07:1 au pire pour du texte atténué sur la barre bleue moyenne.
 
 | Token | Valeur | Rôle |
 |---|---|---|
@@ -24,23 +26,25 @@ Contrastes vérifiés : 7.7:1 pour les deux accents contre le papier, dans les d
 | `--ink` | `oklch(0.155 0 0)` | Texte et filets. Quasi-noir, pas `#000` : le noir pur vibre sur blanc. |
 | `--ink-muted` | `oklch(0.430 0 0)` | Libellés secondaires et métadonnées. 7.2:1 sur `--paper`, au-dessus du minimum AA. |
 | `--ink-faint` | `oklch(0.620 0 0)` | Texte désactivé et séparateurs uniquement. Jamais de texte porteur de sens. |
-| `--color-mine` | `oklch(0.42 0.13 252)` | Bleu « toi » : aplat d'une tuile pariée, libellé `● YOUR BET`. |
-| `--color-mine-tint` | `oklch(0.905 0.045 252)` | Barre de fond de ta ligne dans le classement. |
-| `--color-win` | `oklch(0.44 0.17 27)` | Rouge « résultat » : aplat du gagnant, bandeau d'annonce. |
-| `--color-win-tint` | `oklch(0.905 0.055 27)` | Barre de fond de la ligne gagnante. |
+| `--color-accent` | `oklch(0.42 0.13 252)` | Bleu plein : ton pari, indicateur direct, libellés d'étape, liens. |
+| `--color-accent-mid` | `oklch(0.845 0.075 252)` | Barre de fond de ta ligne dans le classement. |
+| `--color-accent-soft` | `oklch(0.925 0.035 252)` | Barre de fond par défaut, et fond d'une track consultée. |
+| `--color-result` | `oklch(0.44 0.17 27)` | Rouge : aplat du gagnant, bandeau d'annonce, bandeau de clôture. |
+| `--color-result-soft` | `oklch(0.905 0.055 27)` | Barre de fond de la ligne gagnante. |
 
 `--ink-faint` sur `--paper` vaut 4.0:1 : réservé au texte désactivé et aux filets, interdit pour du contenu.
 
 ### Réhabillage
 
-Le produit est destiné à être intégré à generathon.tech, donc à changer de direction artistique. Toute l'identité tient dans le bloc `@theme` de `src/app/globals.css` : sept variables de couleur et une famille typographique. Passer le fond en noir, introduire une couleur d'accent de marque ou changer de grotesque ne demande de toucher à aucun composant. Deux réserves si une couleur est introduite : les états ci-dessous doivent rester distinguables sans elle, et `--color-ink` doit conserver 4.5:1 sur `--color-paper`.
+Le produit est destiné à être intégré à generathon.tech, donc à changer de direction artistique. Toute l'identité tient dans le bloc `@theme` de `src/app/globals.css` : dix variables de couleur et une famille typographique. Passer le fond en noir, introduire une couleur d'accent de marque ou changer de grotesque ne demande de toucher à aucun composant. Deux réserves si une couleur est introduite : les états ci-dessous doivent rester distinguables sans elle, et `--color-ink` doit conserver 4.5:1 sur `--color-paper`.
 
 ### États
 
 Aucune couleur sémantique. L'état se lit par la forme :
 
 - **Non parié** — filet 2px, papier, texte encre. La tuile affiche sa cote sous le libellé `ODDS`.
-- **Parié** — aplat bleu, texte papier, plus la mention `● YOUR BET` (`● YOUR TRACK` sur une track).
+- **Track consultée** — cadre bleu 4px sur fond `accent-soft`. La page ouvre sur la première track, donc cet état est visible dès l'arrivée, avant toute interaction.
+- **Parié** — aplat bleu, texte papier, plus la mention `● YOUR BET` (`● YOUR BET IS HERE` sur une track).
 - **Vote fermé** — filets en `--ink-faint`, opacité 0.55, curseur interdit, bandeau `CLOSED` en tête de page.
 - **Gagnant** — aplat rouge, double contour à 3px de décalage, libellé `WINNER`.
 - **Gagnant et parié** — aplat rouge, anneau bleu, libellé `WINNER · YOURS`. Les deux informations coexistent au lieu que l'une écrase l'autre.

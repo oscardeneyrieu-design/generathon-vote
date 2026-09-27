@@ -11,14 +11,17 @@
   --color-ink-muted: oklch(0.43 0 0);
   --color-ink-faint: oklch(0.62 0 0);
 
-  /* Deux accents, deux rôles, rien d'autre. Le bleu dit « toi » : ta track,
-     ton pari. Le rouge dit « résultat » : le gagnant annoncé. Aucune des
-     deux ne sert à décorer, et aucun état ne repose sur elles seules — un
-     libellé les accompagne toujours. */
-  --color-mine: oklch(0.42 0.13 252);
-  --color-mine-tint: oklch(0.905 0.045 252);
-  --color-win: oklch(0.44 0.17 27);
-  --color-win-tint: oklch(0.905 0.055 27);
+  /* Deux familles, deux rôles. Le bleu, c'est le pari en cours : les barres
+     de cote, l'indicateur direct, les étapes du parcours, et — à sa plus
+     forte intensité — ton propre pari. Le rouge, c'est ce qui est décidé :
+     le gagnant, et la clôture. Trois paliers de bleu pour que la couleur
+     soit présente à l'écran dès la première seconde sans crier. */
+  --color-accent: oklch(0.42 0.13 252);
+  --color-accent-mid: oklch(0.845 0.075 252);
+  --color-accent-soft: oklch(0.925 0.035 252);
+
+  --color-result: oklch(0.44 0.17 27);
+  --color-result-soft: oklch(0.905 0.055 27);
 
   --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
 
@@ -237,10 +240,25 @@ body {
   }
 }
 
+@media (hover: hover) {
+  .tile:hover:not(:disabled):not(.tile-mine):not(.tile-win) {
+    border-color: var(--color-accent);
+  }
+}
+
+/* Track simplement consultée. Distincte de « ton pari » : un aplat plein
+   ferait croire qu'on a parié dessus alors qu'on ne fait que la regarder. */
+.tile-viewing {
+  border-color: var(--color-accent);
+  border-width: 4px;
+  padding: calc(0.75rem - 2px);
+  background: var(--color-accent-soft);
+}
+
 /* Pari confirmé : pas de transition, le retour précède la perception. */
 .tile-mine {
-  background: var(--color-mine);
-  border-color: var(--color-mine);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
   color: var(--color-paper);
   transition: none;
 }
@@ -253,8 +271,8 @@ body {
 }
 
 .tile-mine:disabled {
-  background: var(--color-mine);
-  border-color: var(--color-mine);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
   color: var(--color-paper);
   opacity: 0.8;
 }
@@ -263,13 +281,13 @@ body {
    jamais l'état — le contour le dit aussi, et le libellé WINNER également. */
 .tile-win,
 .tile-win:disabled {
-  background: var(--color-win);
-  border-color: var(--color-win);
+  background: var(--color-result);
+  border-color: var(--color-result);
   color: var(--color-paper);
   opacity: 1;
   box-shadow:
     0 0 0 3px var(--color-paper),
-    0 0 0 6px var(--color-win);
+    0 0 0 6px var(--color-result);
 }
 
 /* Avoir parié sur le gagnant : fond rouge du résultat, anneau bleu du pari. */
@@ -277,7 +295,7 @@ body {
 .tile-win.tile-mine:disabled {
   box-shadow:
     0 0 0 3px var(--color-paper),
-    0 0 0 6px var(--color-mine);
+    0 0 0 6px var(--color-accent);
 }
 
 .tile-name {
@@ -309,22 +327,25 @@ body {
   inset: 0 auto 0 0;
   width: 100%;
   z-index: -1;
-  background: var(--color-paper-sunk);
+  /* Bleu par défaut : c'est le marché en cours. C'est aussi ce qui met de la
+     couleur sur chaque classement dès l'ouverture de la page, sans que
+     personne ait eu à toucher quoi que ce soit. */
+  background: var(--color-accent-soft);
   transform-origin: left center;
   transition: transform var(--dur-bar) var(--ease-out-expo);
 }
 
 .rank-row-mine .rank-bar {
-  background: var(--color-mine-tint);
+  background: var(--color-accent-mid);
 }
 
 .rank-row-win {
   border-bottom-width: var(--rule-thick);
-  border-bottom-color: var(--color-win);
+  border-bottom-color: var(--color-result);
 }
 
 .rank-row-win .rank-bar {
-  background: var(--color-win-tint);
+  background: var(--color-result-soft);
 }
 
 .rank-num {
@@ -344,12 +365,20 @@ body {
 }
 
 /* Libellés d'état sur fond papier. */
-.ink-mine {
-  color: var(--color-mine);
+.ink-accent {
+  color: var(--color-accent);
 }
 
-.ink-win {
-  color: var(--color-win);
+.ink-result {
+  color: var(--color-result);
+}
+
+/* Liens et bascules : le bleu signale ce sur quoi on peut agir. */
+.link-accent {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 600;
 }
 
 /* ---------------------------------------------------------------- banners */
@@ -364,10 +393,11 @@ body {
   color: var(--color-paper);
 }
 
-/* Annonce d'un gagnant : le seul endroit où le rouge occupe une pleine
-   largeur. Il ne se produit que trois fois dans la soirée. */
-.banner-win {
-  background: var(--color-win);
+/* Ce qui est décidé prend le rouge : l'annonce d'un gagnant, et la clôture
+   des paris. Ce sont les deux seuls aplats rouges pleine largeur. */
+.banner-win,
+.banner-closed {
+  background: var(--color-result);
 }
 
 /* --------------------------------------------------------------- skeleton */

@@ -38,11 +38,19 @@ export function TrackPicker({
         const isBet = betTrackId === track.id;
         const count = projectCounts.get(track.id) ?? 0;
 
+        // Trois états distincts : ton pari (aplat bleu plein), la track que
+        // tu consultes (cadre bleu), et les autres. Confondre les deux
+        // premiers laisserait croire qu'on a parié en se contentant de
+        // regarder.
+        const classes = ["tile", "w-full"];
+        if (isBet) classes.push("tile-mine");
+        else if (isSelected) classes.push("tile-viewing");
+
         return (
           <li key={track.id}>
             <button
               type="button"
-              className={`tile w-full${isSelected ? " tile-mine" : ""}`}
+              className={classes.join(" ")}
               style={{ minHeight: 148 }}
               aria-pressed={isSelected}
               disabled={disabled}
@@ -50,13 +58,10 @@ export function TrackPicker({
             >
               <span className="flex w-full flex-col gap-1.5">
                 <span
-                  // Le bleu ne désigne que toi : il n'apparaît que sur la
-                  // track qui porte ton pari, et seulement quand la tuile
-                  // n'est pas déjà remplie en bleu.
-                  className={`t-label${isBet && !isSelected ? " ink-mine" : ""}`}
-                  style={{ opacity: isSelected ? 0.85 : 1 }}
+                  className={`t-label${isBet ? "" : " ink-accent"}`}
+                  style={{ opacity: isBet ? 0.85 : 1 }}
                 >
-                  {isBet ? "● Your track" : `${count} ${count === 1 ? "project" : "projects"}`}
+                  {isBet ? "● Your bet is here" : `${count} ${count === 1 ? "project" : "projects"}`}
                 </span>
                 <span className="tile-name">{track.name}</span>
                 <span className="text-[0.8125rem] leading-snug" style={{ opacity: 0.75 }}>
