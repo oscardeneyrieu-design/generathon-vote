@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { Notice, PageHeader, placeLabel, plural, Stat } from "@/components/Bits";
+import { PageHeader, placeLabel, plural, Stat } from "@/components/Bits";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { Countdown } from "@/components/Countdown";
 import { Leaderboard } from "@/components/Leaderboard";
 import { Avatar } from "@/components/Members";
+import { TrackTabs } from "@/components/TrackTabs";
 import { BRAND_TRACK_KEY } from "@/lib/tracks";
 import { useLive } from "@/lib/use-live";
 import { formatDeadline } from "@/lib/voting";
@@ -30,6 +31,14 @@ export function AdminConsole() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const [editingTrackId, setEditingTrackId] = useState<string | null>(null);
+
+  // Une confirmation disparaît seule ; une erreur reste jusqu'à ce qu'on la ferme.
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 4000);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   const act: Act = async (url, method, body, success) => {
     setBusy(true);
@@ -67,6 +76,8 @@ export function AdminConsole() {
   }
 
   const totalProjects = live.projects.length;
+  const editingTrack =
+    live.board.tracks.find((entry) => entry.track.id === editingTrackId) ?? live.board.tracks[0] ?? null;
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10 sm:py-12">
@@ -95,23 +106,50 @@ export function AdminConsole() {
         }}
       />
 
-      {problem && <Notice>{problem}</Notice>}
-      {notice && !problem && (
-        <p role="status" className="rounded-lg bg-gold/15 px-3.5 py-2.5 text-sm font-medium">
-          {notice}
-        </p>
-      )}
+      {/* Choix de la track à éditer : une seule affichée à la fois, pour ne
+          pas avoir à faire défiler les trois. Les autres restent montées
+          (masquées) pour ne pas perdre une saisie en cours. */}
+      <section>
+        <h2 className="section-title">Track à éditer</h2>
+        <TrackTabs
+          boards={live.board.tracks}
+          selectedTrackId={editingTrack?.track.id ?? null}
+          onSelect={setEditingTrackId}
+        />
+      </section>
 
       {live.board.tracks.map((entry) => (
-        <TrackPanel
-          key={entry.track.id}
-          entry={entry}
-          projects={live.projects.filter((project) => project.track_id === entry.track.id)}
-          members={live.members}
-          busy={busy}
-          act={act}
-        />
+        <div key={entry.track.id} hidden={entry !== editingTrack}>
+          <TrackPanel
+            entry={entry}
+            projects={live.projects.filter((project) => project.track_id === entry.track.id)}
+            members={live.members}
+            busy={busy}
+            act={act}
+          />
+        </div>
       ))}
+
+      {/* Résultat de la dernière action, en bas de l'écran comme sur
+          generathon.tech : visible où qu'on soit dans la page. */}
+      {(problem || notice) && (
+        <div className="fixed inset-x-4 bottom-4 z-20 flex justify-end sm:left-auto">
+          <div className="flex max-w-md items-start gap-3 rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-medium shadow-lg dark:border-white/15 dark:bg-neutral-900">
+            <span className={problem ? "text-red-600 dark:text-red-400" : ""}>{problem ?? notice}</span>
+            <button
+              type="button"
+              aria-label="Fermer le message"
+              className="faint ml-auto"
+              onClick={() => {
+                setProblem(null);
+                setNotice(null);
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

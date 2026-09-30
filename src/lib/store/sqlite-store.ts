@@ -258,7 +258,7 @@ export function createSqliteStore(): Store {
 
       const events = db
         .prepare(
-          `select seq, track_id, project_id, voter_id from bet_events
+          `select seq, track_id, project_id, voter_id, created_at from bet_events
            order by seq desc limit ${MAX_EVENTS}`
         )
         .all() as unknown as BetEvent[];

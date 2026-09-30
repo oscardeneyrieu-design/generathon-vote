@@ -1,7 +1,7 @@
 "use client";
 
 import { EmptyState, LiveBadge, plural } from "@/components/Bits";
-import { Countdown } from "@/components/Countdown";
+import { TimeLeft } from "@/components/Countdown";
 import { JoinCode } from "@/components/JoinCode";
 import { Leaderboard } from "@/components/Leaderboard";
 import { OddsChart } from "@/components/OddsChart";
@@ -41,16 +41,17 @@ export default function BoardPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-end gap-10">
-          {live.bettingOpen && live.closesAt && <Countdown closesAt={live.closesAt} large />}
-          <div className="text-right">
-            <div className="label">Parieurs</div>
-            <div className="mt-2 text-5xl font-extrabold leading-none tracking-tight sm:text-6xl">
-              {loading ? "—" : live.board.totalVoters}
-            </div>
+        <div className="text-right">
+          <div className="label">Parieurs</div>
+          <div className="mt-2 text-5xl font-extrabold leading-none tracking-tight sm:text-6xl">
+            {loading ? "—" : live.board.totalVoters}
           </div>
         </div>
       </header>
+
+      {!loading && live.status !== "error" && (
+        <TimeLeft bettingOpen={live.bettingOpen} votingOpen={live.votingOpen} closesAt={live.closesAt} />
+      )}
 
       {live.status === "error" ? (
         <EmptyState
@@ -77,7 +78,7 @@ export default function BoardPage() {
 
                   <div>
                     <h3 className="label mb-2">Évolution des cotes</h3>
-                    <OddsChart series={live.series.get(track.id) ?? []} {...CHART} />
+                    <OddsChart series={live.series.get(track.id) ?? []} {...CHART} closesAt={live.closesAt} />
                   </div>
 
                   <Podium podium={podium} large />

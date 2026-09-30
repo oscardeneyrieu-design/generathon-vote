@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 
 import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
+import { LiveProvider } from "@/lib/use-live";
 
 import "./globals.css";
 
@@ -34,9 +35,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr" className={geist.variable}>
       <body className="flex min-h-dvh flex-col">
-        <SiteHeader />
-        {children}
-        <SiteFooter />
+        <LiveProvider>
+          <SiteHeader />
+          {children}
+          <SiteFooter />
+        </LiveProvider>
       </body>
     </html>
   );

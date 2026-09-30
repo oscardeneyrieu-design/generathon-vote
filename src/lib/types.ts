@@ -59,6 +59,8 @@ export type BetEvent = {
   track_id: string;
   project_id: string;
   voter_id: string;
+  /** Heure du pari (ISO) : l'axe horizontal des courbes. */
+  created_at: string;
 };
 
 /** Une ligne de classement, déjà triée et dénormalisée pour l'affichage. */
@@ -82,10 +84,10 @@ export type Standing = {
   isMine: boolean;
 };
 
-/** Un point de la courbe d'un projet : sa cote après le n-ième parieur. */
+/** Un point de la courbe d'un projet : sa cote à un instant donné. */
 export type SeriesPoint = {
-  /** Nombre de parieurs sur la track à cet instant. */
-  bettors: number;
+  /** Instant du changement de cote, en millisecondes depuis 1970. */
+  time: number;
   odds: number;
 };
 

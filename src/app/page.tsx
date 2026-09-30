@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { EmptyState, LiveBadge, Notice, PageHeader, plural, Stat } from "@/components/Bits";
-import { Countdown } from "@/components/Countdown";
+import { TimeLeft } from "@/components/Countdown";
 import { Leaderboard } from "@/components/Leaderboard";
 import { OddsChart } from "@/components/OddsChart";
 import { Podium } from "@/components/Podium";
@@ -11,7 +11,6 @@ import { ProjectGrid } from "@/components/ProjectGrid";
 import { TrackTabs } from "@/components/TrackTabs";
 import { THIN_MARKET } from "@/lib/odds";
 import { useLive } from "@/lib/use-live";
-import { formatDeadline } from "@/lib/voting";
 import type { Member } from "@/lib/types";
 
 export default function VotePage() {
@@ -54,8 +53,6 @@ export default function VotePage() {
     );
   }
 
-  const deadlinePassed = live.votingOpen && live.closesAt !== null && !bettingOpen;
-
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-6 py-10 sm:py-12">
       <div className="flex flex-col gap-3">
@@ -74,22 +71,8 @@ export default function VotePage() {
             </div>
           }
         />
+        <TimeLeft bettingOpen={bettingOpen} votingOpen={live.votingOpen} closesAt={live.closesAt} />
       </div>
-
-      {bettingOpen && live.closesAt && (
-        <div className="card p-4">
-          <Countdown closesAt={live.closesAt} />
-        </div>
-      )}
-
-      {!bettingOpen && (
-        <div className="rounded-xl border border-gold bg-gold/10 px-4 py-3 font-semibold">
-          {deadlinePassed
-            ? `Les paris sont clos depuis ${formatDeadline(live.closesAt!)}.`
-            : "Les paris sont clos"}{" "}
-          <span className="font-normal">Les classements restent visibles.</span>
-        </div>
-      )}
 
       {live.error && <Notice onDismiss={live.dismissError}>{live.error}</Notice>}
 
@@ -174,7 +157,7 @@ export default function VotePage() {
             <section>
               <h2 className="section-title">Évolution des cotes</h2>
               <div className="card p-4">
-                <OddsChart series={live.series.get(selected.track.id) ?? []} height={210} />
+                <OddsChart series={live.series.get(selected.track.id) ?? []} height={210} closesAt={live.closesAt} />
               </div>
             </section>
           )}

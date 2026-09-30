@@ -3,16 +3,13 @@ import { placeOf } from "./standings.ts";
 import type { BetEvent, Project, ProjectSeries, SeriesPoint, Track } from "./types.ts";
 
 /**
- * Reconstitue l'évolution des cotes de chaque track à partir du journal.
+ * Reconstitue l'évolution des cotes de chaque track dans le temps, à partir
+ * du journal des paris.
  *
  * On rejoue les évènements dans l'ordre. Chaque personne a au plus un pari
- * par track : un changement d'avis dans une track déplace son pari d'un
- * projet à l'autre sans ajouter de parieur.
- *
- * L'axe des abscisses est le nombre de parieurs distincts sur la track, pas
- * le temps : une nuit de hackathon créerait des heures de plat, et ce qui
- * intéresse le public c'est « comment ça bouge à mesure que les gens
- * parient », pas l'horloge.
+ * par track : un changement d'avis déplace son pari d'un projet à l'autre
+ * sans ajouter de parieur. Chaque pari produit un point par projet de la
+ * track, daté de l'heure du pari ; entre deux points la cote ne bouge pas.
  */
 export function computeSeries(
   tracks: Track[],
@@ -27,7 +24,6 @@ export function computeSeries(
     projectsByTrack.set(project.track_id, list);
   }
 
-  // Points par projet, indexés pour un remplissage en O(1).
   const points = new Map<string, SeriesPoint[]>();
   for (const project of projects) points.set(project.id, []);
 
@@ -36,28 +32,34 @@ export function computeSeries(
   /** Pari courant de chaque personne dans chaque track, clé `voter|track`. */
   const choice = new Map<string, string>();
 
-  /** Fige l'état d'une track : un point par projet, à l'abscisse courante. */
-  const snapshot = (trackId: string) => {
+  /** Fige l'état d'une track à un instant : un point par projet. */
+  const snapshot = (trackId: string, time: number) => {
     const inTrack = projectsByTrack.get(trackId);
     if (!inTrack) return;
 
     const total = bettors.get(trackId) ?? 0;
     for (const project of inTrack) {
-      points.get(project.id)?.push({
-        bettors: total,
-        odds: computeOdds(counts.get(project.id) ?? 0, total, inTrack.length),
-      });
+      const list = points.get(project.id)!;
+      const odds = computeOdds(counts.get(project.id) ?? 0, total, inTrack.length);
+      // Deux paris à la même milliseconde : on garde le dernier état.
+      if (list.length > 0 && list[list.length - 1].time === time) list[list.length - 1].odds = odds;
+      else list.push({ time, odds });
     }
   };
-
-  // Origine : avant tout pari, tous les projets d'une track partagent la
-  // même cote. C'est exactement ce qu'on sait d'eux, et ça donne aux
-  // courbes un point de départ commun.
-  for (const track of tracks) snapshot(track.id);
 
   const ordered = [...events].sort((a, b) => a.seq - b.seq);
 
   for (const event of ordered) {
+    const time = Date.parse(event.created_at);
+    if (Number.isNaN(time)) continue;
+
+    // Origine : juste avant le premier pari de la track, tous ses projets
+    // partagent la même cote. Ça donne aux courbes un départ commun.
+    if (!bettors.has(event.track_id)) {
+      bettors.set(event.track_id, 0);
+      snapshot(event.track_id, time - 1);
+    }
+
     const key = `${event.voter_id}|${event.track_id}`;
     const previous = choice.get(key);
 
@@ -69,28 +71,29 @@ export function computeSeries(
 
     counts.set(event.project_id, (counts.get(event.project_id) ?? 0) + 1);
     choice.set(key, event.project_id);
-    snapshot(event.track_id);
+    snapshot(event.track_id, time);
   }
 
   const result = new Map<string, ProjectSeries[]>();
 
   for (const track of tracks) {
     const inTrack = projectsByTrack.get(track.id) ?? [];
+    const total = bettors.get(track.id) ?? 0;
 
     const series = inTrack.map((project) => {
-      const series = points.get(project.id) ?? [];
+      const list = points.get(project.id) ?? [];
       return {
         projectId: project.id,
         name: project.name,
-        points: series,
-        currentOdds: series.length > 0 ? series[series.length - 1].odds : 0,
+        points: list,
+        currentOdds:
+          list.length > 0 ? list[list.length - 1].odds : computeOdds(0, total, inTrack.length),
         place: placeOf(track, project.id),
         isMine: myVoterId !== null && choice.get(`${myVoterId}|${track.id}`) === project.id,
       } satisfies ProjectSeries;
     });
 
-    // Cotes les plus faibles en premier : ce sont les favoris de la salle,
-    // et c'est l'ordre dans lequel le public veut les lire.
+    // Cotes les plus faibles en premier : ce sont les favoris de la salle.
     series.sort((a, b) => a.currentOdds - b.currentOdds || a.name.localeCompare(b.name, "en"));
     result.set(track.id, series);
   }

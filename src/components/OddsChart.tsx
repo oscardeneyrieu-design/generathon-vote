@@ -16,6 +16,11 @@ type Props = {
    */
   width?: number;
   height?: number;
+  /**
+   * Heure de clôture programmée (ISO). Les courbes se prolongent jusqu'à
+   * maintenant, mais pas au-delà de la clôture.
+   */
+  closesAt?: string | null;
 };
 
 const LABEL_WIDTH = 150;
@@ -29,13 +34,14 @@ const PAD_LEFT = 38;
  * - Axe vertical inversé et logarithmique : une cote qui baisse est une bonne
  *   nouvelle, donc « monter » veut dire « mieux placé » ; et en linéaire les
  *   favoris s'écraseraient sur une bande.
- * - Axe horizontal en nombre de parieurs, pas en temps : une nuit de
- *   hackathon produirait des heures de plat.
+ * - Axe horizontal en temps, du premier pari à maintenant. La courbe est en
+ *   escalier : une cote ne change qu'au moment d'un pari, et reste stable
+ *   entre deux.
  * - Étiquettes en bout de courbe plutôt qu'une légende.
  */
-export function OddsChart({ series, limit = 5, width: WIDTH = 640, height = 200 }: Props) {
+export function OddsChart({ series, limit = 5, width: WIDTH = 640, height = 200, closesAt }: Props) {
   const clipId = useId();
-  const drawn = series.slice(0, limit).filter((entry) => entry.points.length > 1);
+  const drawn = series.slice(0, limit).filter((entry) => entry.points.length > 0);
   const frame = { aspectRatio: `${WIDTH} / ${height}` };
 
   if (drawn.length === 0) {
@@ -50,7 +56,11 @@ export function OddsChart({ series, limit = 5, width: WIDTH = 640, height = 200 
   const plotWidth = plotRight - PAD_LEFT;
   const plotHeight = height - PAD_TOP - PAD_BOTTOM;
 
-  const maxBettors = Math.max(1, ...drawn.map((entry) => entry.points.at(-1)?.bettors ?? 0));
+  const start = Math.min(...drawn.map((entry) => entry.points[0].time));
+  const lastEvent = Math.max(...drawn.map((entry) => entry.points[entry.points.length - 1].time));
+  const deadline = closesAt ? Date.parse(closesAt) : NaN;
+  const end = Math.max(lastEvent, Number.isNaN(deadline) ? Date.now() : Math.min(Date.now(), deadline));
+  const span = Math.max(end - start, 60_000);
 
   const allOdds = drawn.flatMap((entry) => entry.points.map((point) => point.odds));
   const minOdds = Math.max(1, Math.min(...allOdds));
@@ -58,7 +68,15 @@ export function OddsChart({ series, limit = 5, width: WIDTH = 640, height = 200 
   const logMin = Math.log(minOdds);
   const logSpan = Math.log(maxOdds) - logMin || 1;
 
-  const x = (bettors: number) => PAD_LEFT + (bettors / maxBettors) * plotWidth;
+  const x = (time: number) => PAD_LEFT + ((time - start) / span) * plotWidth;
+
+  /** Escalier : horizontal jusqu'au pari suivant, puis saut vertical. */
+  const stepPath = (entry: ProjectSeries) => {
+    const [first, ...rest] = entry.points;
+    let d = `M${x(first.time)},${y(first.odds)}`;
+    for (const point of rest) d += ` H${x(point.time)} V${y(point.odds)}`;
+    return `${d} H${x(start + span)}`;
+  };
   // Inversion : cote faible en haut.
   const y = (odds: number) =>
     PAD_TOP + ((Math.log(Math.max(odds, minOdds)) - logMin) / logSpan) * plotHeight;
@@ -84,7 +102,10 @@ export function OddsChart({ series, limit = 5, width: WIDTH = 640, height = 200 
           </clipPath>
         </defs>
 
-        {oddsTicks(minOdds, maxOdds).map((tick) => (
+        {/* Pas de graduation collée au libellé « COTE », qui la chevaucherait. */}
+        {oddsTicks(minOdds, maxOdds)
+          .filter((tick) => y(tick) > PAD_TOP + 8)
+          .map((tick) => (
           <g key={tick}>
             <line
               x1={PAD_LEFT}
@@ -109,12 +130,18 @@ export function OddsChart({ series, limit = 5, width: WIDTH = 640, height = 200 
           stroke="currentColor"
           strokeOpacity={0.25}
         />
-        <text x={PAD_LEFT} y={height - 8} fill="currentColor" fillOpacity={0.5}>
-          PARIEURS →
-        </text>
-        <text x={plotRight} y={height - 8} textAnchor="end" fill="currentColor" fillOpacity={0.5}>
-          {maxBettors}
-        </text>
+        {[0, 1 / 3, 2 / 3, 1].map((fraction, index, all) => (
+          <text
+            key={fraction}
+            x={PAD_LEFT + fraction * plotWidth}
+            y={height - 8}
+            textAnchor={index === 0 ? "start" : index === all.length - 1 ? "end" : "middle"}
+            fill="currentColor"
+            fillOpacity={0.5}
+          >
+            {formatTime(start + fraction * span, span)}
+          </text>
+        ))}
         <text x={PAD_LEFT - 6} y={PAD_TOP - 4} textAnchor="end" fill="currentColor" fillOpacity={0.5}>
           COTE
         </text>
@@ -124,9 +151,9 @@ export function OddsChart({ series, limit = 5, width: WIDTH = 640, height = 200 
           {[...drawn].reverse().map((entry) => {
             const style = strokeFor(entry, drawn.indexOf(entry));
             return (
-              <polyline
+              <path
                 key={entry.projectId}
-                points={entry.points.map((p) => `${x(p.bettors)},${y(p.odds)}`).join(" ")}
+                d={stepPath(entry)}
                 fill="none"
                 stroke={style.stroke}
                 strokeOpacity={style.opacity}
@@ -145,7 +172,7 @@ export function OddsChart({ series, limit = 5, width: WIDTH = 640, height = 200 
           return (
             <g key={`label-${entry.projectId}`}>
               <line
-                x1={x(last.bettors)}
+                x1={x(start + span)}
                 x2={plotRight + 8}
                 y1={y(last.odds)}
                 y2={labelY}
@@ -205,6 +232,13 @@ function oddsTicks(min: number, max: number): number[] {
   const inRange = candidates.filter((value) => value >= min && value <= max);
   if (inRange.length >= 3) return inRange;
   return [min, Math.sqrt(min * max), max].map((value) => Math.round(value * 10) / 10);
+}
+
+/** « 14:05 » sur une journée, « sam. 14:05 » au-delà. */
+function formatTime(time: number, span: number): string {
+  const date = new Date(time);
+  const clock = date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  return span > 20 * 3_600_000 ? `${date.toLocaleDateString("fr-FR", { weekday: "short" })} ${clock}` : clock;
 }
 
 function truncate(value: string, max: number): string {

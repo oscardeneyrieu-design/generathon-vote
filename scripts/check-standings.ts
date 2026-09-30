@@ -45,11 +45,15 @@ const bet = (voter: string, t: string, project: string): Bet => ({
 });
 
 let seq = 0;
+/** Un pari par minute à partir de 14 h : `seq` sert aussi d'horloge. */
+const T0 = Date.parse("2026-10-03T14:00:00.000Z");
+const at = (n: number) => T0 + n * 60_000;
 const event = (voter: string, t: string, project: string): BetEvent => ({
   seq: (seq += 1),
   voter_id: voter,
   track_id: t,
   project_id: project,
+  created_at: new Date(at(seq)).toISOString(),
 });
 
 // ------------------------------------------------------------------ cotes
@@ -188,27 +192,23 @@ test("podium : avoir parié sur un projet du podium, les deux états coexistent"
 
 // ----------------------------------------------------------------- courbes
 
-test("courbe : un point d'origine commun avant tout pari", () => {
-  const series = computeSeries(tracks, projects, [], null);
-  const t1 = series.get("t1")!;
+test("courbe : aucune courbe tant que personne n'a parié", () => {
+  const t1 = computeSeries(tracks, projects, [], null).get("t1")!;
   assert.equal(t1.length, 3);
-  assert.deepEqual(t1.map((s) => s.points[0]), [
-    { bettors: 0, odds: 3 },
-    { bettors: 0, odds: 3 },
-    { bettors: 0, odds: 3 },
-  ]);
+  assert.equal(t1.every((s) => s.points.length === 0), true);
+  assert.deepEqual(t1.map((s) => s.currentOdds), [3, 3, 3]);
 });
 
-test("courbe : les cotes évoluent à mesure que les parieurs arrivent", () => {
+test("courbe : l'axe est le temps, avec une origine commune juste avant le premier pari", () => {
   seq = 0;
   const events = [event("v1", "t1", "p1"), event("v2", "t1", "p1"), event("v3", "t1", "p2")];
   const alpha = computeSeries(tracks, projects, events, null).get("t1")!.find((s) => s.name === "Alpha")!;
 
   assert.deepEqual(alpha.points, [
-    { bettors: 0, odds: 3 }, // origine
-    { bettors: 1, odds: 2 }, // (1+3)/(1+1)
-    { bettors: 2, odds: 1.67 }, // (2+3)/(2+1)
-    { bettors: 3, odds: 2 }, // (3+3)/(2+1)
+    { time: at(1) - 1, odds: 3 }, // origine
+    { time: at(1), odds: 2 }, // (1+3)/(1+1)
+    { time: at(2), odds: 1.67 }, // (2+3)/(2+1)
+    { time: at(3), odds: 2 }, // (3+3)/(2+1)
   ]);
   assert.equal(alpha.currentOdds, 2);
 });
@@ -220,47 +220,42 @@ test("courbe : parier dans une seconde track ne touche pas la première", () => 
 
   const alpha = series.get("t1")!.find((s) => s.name === "Alpha")!;
   const delta = series.get("t2")!.find((s) => s.name === "Delta")!;
-  assert.deepEqual(alpha.points.map((p) => p.bettors), [0, 1]);
-  assert.deepEqual(delta.points.map((p) => p.bettors), [0, 1]);
+  assert.deepEqual(alpha.points.map((p) => p.time), [at(1) - 1, at(1)]);
+  assert.deepEqual(delta.points.map((p) => p.time), [at(2) - 1, at(2)]);
 });
 
 test("courbe : changer d'avis dans une track déplace le pari sans ajouter de parieur", () => {
   seq = 0;
   const events = [event("v1", "t1", "p1"), event("v1", "t1", "p2")];
   const t1 = computeSeries(tracks, projects, events, null).get("t1")!;
-  const alpha = t1.find((s) => s.name === "Alpha")!;
-  const bravo = t1.find((s) => s.name === "Bravo")!;
-  assert.deepEqual(alpha.points.map((p) => p.bettors), [0, 1, 1]);
-  assert.equal(alpha.currentOdds, 4); // (1+3)/(0+1)
-  assert.equal(bravo.currentOdds, 2); // (1+3)/(1+1)
+  assert.equal(t1.find((s) => s.name === "Alpha")!.currentOdds, 4); // (1+3)/(0+1)
+  assert.equal(t1.find((s) => s.name === "Bravo")!.currentOdds, 2); // (1+3)/(1+1)
 });
 
-test("courbe : re-parier sur le même projet ne double pas le parieur", () => {
-  seq = 0;
-  const events = [event("v1", "t1", "p1"), event("v1", "t1", "p1")];
+test("courbe : deux paris à la même milliseconde ne font qu'un point", () => {
+  const same = new Date(T0).toISOString();
+  const events: BetEvent[] = [
+    { seq: 1, voter_id: "v1", track_id: "t1", project_id: "p1", created_at: same },
+    { seq: 2, voter_id: "v2", track_id: "t1", project_id: "p1", created_at: same },
+  ];
   const alpha = computeSeries(tracks, projects, events, null).get("t1")!.find((s) => s.name === "Alpha")!;
-  assert.deepEqual(alpha.points.map((p) => p.bettors), [0, 1, 1]);
+  assert.deepEqual(alpha.points, [
+    { time: T0 - 1, odds: 3 },
+    { time: T0, odds: 1.67 },
+  ]);
 });
 
 test("courbe : triées cote la plus faible en premier", () => {
   seq = 0;
-  const events = [
-    event("v1", "t1", "p3"),
-    event("v2", "t1", "p3"),
-    event("v3", "t1", "p2"),
-  ];
+  const events = [event("v1", "t1", "p3"), event("v2", "t1", "p3"), event("v3", "t1", "p2")];
   const t1 = computeSeries(tracks, projects, events, null).get("t1")!;
   assert.deepEqual(t1.map((s) => s.name), ["Charlie", "Bravo", "Alpha"]);
-  assert.equal(t1[0].currentOdds <= t1[1].currentOdds, true);
-  assert.equal(t1[1].currentOdds <= t1[2].currentOdds, true);
 });
 
 test("courbe : le podium et mon pari remontent jusqu'aux courbes", () => {
   seq = 0;
   const settled = tracks.map((t) => (t.id === "t1" ? { ...t, first_project_id: "p2" } : t));
-  const events = [event("moi", "t1", "p1")];
-  const t1 = computeSeries(settled, projects, events, "moi").get("t1")!;
-
+  const t1 = computeSeries(settled, projects, [event("moi", "t1", "p1")], "moi").get("t1")!;
   assert.equal(t1.find((s) => s.name === "Bravo")!.place, 1);
   assert.equal(t1.find((s) => s.name === "Alpha")!.isMine, true);
   assert.equal(t1.find((s) => s.name === "Charlie")!.isMine, false);

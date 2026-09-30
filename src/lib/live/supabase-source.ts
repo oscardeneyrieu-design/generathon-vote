@@ -41,7 +41,7 @@ export function createSupabaseSource(): LiveSource {
         supabase.from("bets").select("voter_id, track_id, project_id"),
         supabase
           .from("bet_events")
-          .select("seq, track_id, project_id, voter_id")
+          .select("seq, track_id, project_id, voter_id, created_at")
           .order("seq", { ascending: false })
           .limit(MAX_EVENTS),
       ]);

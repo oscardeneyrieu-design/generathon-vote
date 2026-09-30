@@ -15,6 +15,10 @@ Un pari par appareil et par track, modifiable à volonté tant que les paris son
 
 Dans `/admin`, choisis le jour et l'heure de fin (par défaut le prochain dimanche à 14 h), puis **Lancer le compte à rebours**. Les paris s'ouvrent, le compte à rebours défile sur les téléphones, sur le grand écran et dans l'admin, et à l'heure dite tout se ferme seul : les écrans basculent d'eux-mêmes et le serveur refuse tout pari arrivé après (c'est l'heure du serveur qui fait foi, pas celle du téléphone). On peut changer l'heure, fermer plus tôt, ou ouvrir sans heure de fin.
 
+Le temps restant reste toujours visible dans la barre de menu (sous la barre sur téléphone). Les courbes d'évolution des cotes ont le temps en abscisse : du premier pari jusqu'à maintenant (ou jusqu'à la clôture), en escalier puisqu'une cote ne change qu'au moment d'un pari.
+
+Dans `/admin`, trois onglets au milieu de la page choisissent la track à éditer : une seule est affichée à la fois.
+
 ## L'accès admin
 
 Le bouton **Admin** mène à `/admin`, protégé par un code : la valeur de `ADMIN_CODE` dans `.env.local` (et, une fois en ligne, dans les variables d'environnement Vercel). Le code n'est jamais stocké dans le navigateur : après connexion, le serveur pose un cookie signé avec ce code, valable 12 h. Changer `ADMIN_CODE` déconnecte tout le monde. Après 8 essais ratés en une minute, la connexion est bloquée une minute.

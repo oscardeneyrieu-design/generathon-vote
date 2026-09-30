@@ -1,6 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import { computeSeries } from "./history";
 import { getLiveSource } from "./live";
@@ -42,7 +52,7 @@ export type LiveState = {
   dismissError: () => void;
 };
 
-export function useLive(): LiveState {
+function useLiveState(): LiveState {
   const [votingOpen, setVotingOpen] = useState(false);
   const [closesAt, setClosesAt] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -224,4 +234,20 @@ export function useLive(): LiveState {
     placeBet,
     dismissError: useCallback(() => setError(null), []),
   };
+}
+
+const LiveContext = createContext<LiveState | null>(null);
+
+/**
+ * Une seule connexion en direct par onglet, partagée par la barre de menu
+ * (compte à rebours) et la page affichée. Posé une fois, dans le layout.
+ */
+export function LiveProvider({ children }: { children: ReactNode }) {
+  return createElement(LiveContext.Provider, { value: useLiveState() }, children);
+}
+
+export function useLive(): LiveState {
+  const live = useContext(LiveContext);
+  if (!live) throw new Error("useLive doit être utilisé sous <LiveProvider>.");
+  return live;
 }
