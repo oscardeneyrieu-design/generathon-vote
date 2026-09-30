@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 
 export const ADMIN_COOKIE = "pv_admin";
 
@@ -51,4 +52,11 @@ export async function isAdmin(): Promise<boolean> {
   }
   if (given.length !== expected.length) return false;
   return timingSafeEqual(given, expected);
+}
+
+/** À appeler en tête de chaque route admin : renvoie une 401 si la session manque. */
+export async function adminGuard(): Promise<NextResponse | null> {
+  return (await isAdmin())
+    ? null
+    : NextResponse.json({ error: "Session admin requise." }, { status: 401 });
 }

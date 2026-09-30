@@ -90,7 +90,8 @@ if (!check("le serveur répond", first.status === 200, `HTTP ${first.status}`)) 
 console.log(`  INFO  backend : ${(await probeStream()) === 204 ? "supabase" : "sqlite"}`);
 
 const wasOpen = first.body.votingOpen;
-console.log(`  INFO  vote actuellement : ${wasOpen ? "ouvert" : "fermé"}`);
+const wasClosesAt = first.body.closesAt ?? null;
+console.log(`  INFO  vote actuellement : ${wasOpen ? "ouvert" : "fermé"}${wasClosesAt ? ` jusqu'à ${wasClosesAt}` : ""}`);
 
 const tracks = first.body.tracks ?? [];
 if (!check("les trois tracks existent", tracks.length === 3, `${tracks.length} track(s)`)) {
@@ -118,20 +119,46 @@ const forged = await fetch(base + "/api/admin/voting", {
 });
 check("un inconnu ne peut pas ouvrir le vote", forged.status === 401, `HTTP ${forged.status}`);
 
-// 4. Projet jetable dans la première track.
+// 4. Un projet jetable dans chacune des deux premières tracks.
 const [trackA, trackB] = tracks;
 const created = await call(
   "/api/admin/projects",
   send({ trackId: trackA.id, name: SMOKE_PROJECT, team: "smoke" }, "POST")
 );
 check("création d'un projet de test", created.status === 200, `HTTP ${created.status}`);
+await call("/api/admin/projects", send({ trackId: trackB.id, name: SMOKE_PROJECT, team: "smoke" }, "POST"));
 
 const afterCreate = (await call("/api/state")).body;
-const smoke = afterCreate.projects.find((p) => p.name === SMOKE_PROJECT);
-if (!check("le projet de test est bien en base", Boolean(smoke))) {
-  await cleanup(null);
+const smoke = afterCreate.projects.find((p) => p.name === SMOKE_PROJECT && p.track_id === trackA.id);
+const smokeB = afterCreate.projects.find((p) => p.name === SMOKE_PROJECT && p.track_id === trackB.id);
+if (!check("les projets de test sont bien en base", Boolean(smoke && smokeB))) {
+  await cleanup([smoke?.id, smokeB?.id]);
   process.exit(1);
 }
+
+// 4 bis. Membres et photo.
+const PIXEL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+const photo = await call("/api/admin/photos", send({ dataUrl: PIXEL }, "POST"));
+check("envoi d'une photo", photo.status === 200 && typeof photo.body.url === "string", `HTTP ${photo.status}`);
+const member = await call(
+  "/api/admin/members",
+  send({ projectId: smoke.id, name: "Smoke Tester", photoUrl: photo.body.url }, "POST")
+);
+check("ajout d'un membre avec photo", member.status === 200, `HTTP ${member.status}`);
+const withMember = (await call("/api/state")).body;
+const smokeMember = (withMember.members ?? []).find((m) => m.project_id === smoke.id);
+check("le membre apparaît dans l'état public", smokeMember?.name === "Smoke Tester");
+const served = await fetch(base + photo.body.url);
+check(
+  "la photo est servie",
+  served.ok && served.headers.get("content-type") === "image/png",
+  `HTTP ${served.status}`
+);
+const external = await call(
+  "/api/admin/members",
+  send({ projectId: smoke.id, name: "X", photoUrl: "https://example.com/x.png" }, "POST")
+);
+check("une URL de photo externe est refusée", external.status === 400, `HTTP ${external.status}`);
 
 // 5. Cycle de pari.
 await call("/api/admin/voting", send({ open: true }, "PATCH"));
@@ -161,13 +188,37 @@ state = (await call("/api/state")).body;
 smokeBets = state.bets.filter((b) => b.project_id === smoke.id);
 check("re-parier ne crée pas un second pari", smokeBets.length === 2, `${smokeBets.length}`);
 
+// Un même parieur peut désigner un gagnant dans une AUTRE track.
+await new Promise((r) => setTimeout(r, 300));
+const betB = await placeBet(trackB.id, smokeB.id, "smoke-voter-aaaa");
+state = (await call("/api/state")).body;
+const mine = state.bets.filter((b) => b.voter_id === "smoke-voter-aaaa");
+check(
+  "un même parieur a un pari dans chaque track",
+  betB.status === 200 && mine.length === 2 && mine.some((b) => b.project_id === smoke.id),
+  `${mine.length} pari(s)`
+);
+
+// 5 bis. Horloge : ouverts jusqu'à l'heure dite, puis refusés.
+const past = await call(
+  "/api/admin/voting",
+  send({ open: true, closesAt: new Date(Date.now() - 60_000).toISOString() }, "PATCH")
+);
+check("une heure de fin déjà passée est refusée", past.status === 400, `HTTP ${past.status}`);
+await call("/api/admin/voting", send({ open: true, closesAt: new Date(Date.now() + 2500).toISOString() }, "PATCH"));
+const beforeDeadline = await placeBet(trackA.id, smoke.id, "smoke-voter-eeee");
+check("pari accepté avant l'heure de fin", beforeDeadline.status === 200, `HTTP ${beforeDeadline.status}`);
+await new Promise((r) => setTimeout(r, 3000));
+const afterDeadline = await placeBet(trackA.id, smoke.id, "smoke-voter-ffff");
+check("pari refusé après l'heure de fin", afterDeadline.status === 409, `HTTP ${afterDeadline.status}`);
+
 // 6. Clôture : plus aucun pari ne passe.
 await call("/api/admin/voting", send({ open: false }, "PATCH"));
 const late = await placeBet(trackA.id, smoke.id, "smoke-voter-dddd");
 check("un pari après clôture est refusé", late.status === 409, `HTTP ${late.status}`);
 
 // 7. Ménage et restauration.
-await cleanup(smoke.id);
+await cleanup([smoke.id, smokeB.id]);
 
 const final = (await call("/api/state")).body;
 check(
@@ -177,16 +228,22 @@ check(
 );
 check(
   "l'état d'ouverture du vote est restauré",
-  final.votingOpen === wasOpen,
+  final.votingOpen === wasOpen && (final.closesAt ?? null) === wasClosesAt,
   final.votingOpen ? "ouvert" : "fermé"
 );
+if (photo.body.url) {
+  const gone = await fetch(base + photo.body.url);
+  check("la photo du membre supprimé est effacée", gone.status === 404, `HTTP ${gone.status}`);
+}
 
-async function cleanup(projectId) {
-  if (projectId) {
-    // Supprimer le projet efface ses paris par cascade.
+async function cleanup(projectIds) {
+  for (const projectId of projectIds.filter(Boolean)) {
+    // Supprimer le projet efface ses membres et ses paris par cascade.
     await call(`/api/admin/projects?id=${encodeURIComponent(projectId)}`, { method: "DELETE" });
   }
-  await call("/api/admin/voting", send({ open: wasOpen }, "PATCH"));
+  // Une heure de fin passée entre-temps ne peut pas être reposée telle quelle.
+  const closesAt = wasClosesAt && Date.parse(wasClosesAt) > Date.now() ? wasClosesAt : null;
+  await call("/api/admin/voting", send({ open: wasOpen, closesAt }, "PATCH"));
 }
 
 console.log(

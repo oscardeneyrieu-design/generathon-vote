@@ -25,30 +25,30 @@ export async function POST(request: Request) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
 
   if (rateLimited(ip)) {
-    return NextResponse.json({ error: "Too many attempts. Wait a minute." }, { status: 429 });
+    return NextResponse.json({ error: "Trop de tentatives. Attends une minute." }, { status: 429 });
   }
 
   let payload: unknown;
   try {
     payload = await request.json();
   } catch {
-    return NextResponse.json({ error: "Malformed request." }, { status: 400 });
+    return NextResponse.json({ error: "Requête illisible." }, { status: 400 });
   }
 
   const { code } = (payload ?? {}) as Record<string, unknown>;
   if (typeof code !== "string") {
-    return NextResponse.json({ error: "Missing code." }, { status: 400 });
+    return NextResponse.json({ error: "Code manquant." }, { status: 400 });
   }
 
   let valid = false;
   try {
     valid = isValidCode(code);
   } catch {
-    return NextResponse.json({ error: "ADMIN_CODE is not set on the server." }, { status: 500 });
+    return NextResponse.json({ error: "ADMIN_CODE n'est pas défini sur le serveur." }, { status: 500 });
   }
 
   if (!valid) {
-    return NextResponse.json({ error: "Wrong code." }, { status: 401 });
+    return NextResponse.json({ error: "Code incorrect." }, { status: 401 });
   }
 
   const response = NextResponse.json({ ok: true });

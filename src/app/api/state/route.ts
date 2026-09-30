@@ -20,7 +20,7 @@ export async function GET() {
     });
   } catch (cause) {
     return NextResponse.json(
-      { error: cause instanceof Error ? cause.message : "Database unreachable." },
+      { error: cause instanceof Error ? cause.message : "Base injoignable." },
       { status: 503 }
     );
   }

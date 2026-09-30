@@ -3,20 +3,22 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Deux temps plutôt qu'une boîte de dialogue : l'organisateur agit devant une
- * salle, il doit voir l'effet annoncé sans que l'écran projeté se couvre d'un
- * modal. Le bouton retombe seul au bout de quatre secondes.
+ * Confirmation en deux temps plutôt qu'une boîte de dialogue : l'organisateur
+ * agit devant une salle, il doit voir l'effet annoncé sans qu'un modal
+ * recouvre l'écran. Le bouton se désarme seul au bout de quatre secondes.
  */
 export function ConfirmButton({
   label,
   confirmLabel,
   onConfirm,
   disabled,
+  variant = "outline",
 }: {
   label: string;
   confirmLabel: string;
   onConfirm: () => void;
   disabled?: boolean;
+  variant?: "outline" | "gold";
 }) {
   const [armed, setArmed] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -37,7 +39,7 @@ export function ConfirmButton({
   return (
     <button
       type="button"
-      className={armed ? "btn btn-solid" : "btn"}
+      className={`btn ${armed ? "btn-danger" : variant === "gold" ? "btn-gold" : "btn-outline"}`}
       disabled={disabled}
       onBlur={disarm}
       onClick={() => {

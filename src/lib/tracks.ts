@@ -26,12 +26,3 @@ export const SEED_TRACKS = [
 
 /** Seule la track Ad expose un champ marque. */
 export const BRAND_TRACK_KEY = "ad";
-
-export const AD_BRANDS = [
-  "Flytex",
-  "Lucis",
-  "Lina.law",
-  "Duolingo",
-  "Converse",
-  "Jeep",
-] as const;

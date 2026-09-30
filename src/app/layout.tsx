@@ -1,27 +1,30 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo } from "next/font/google";
+import { Geist } from "next/font/google";
+
+import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
 
 import "./globals.css";
 
-// Un seul grotesque pour tout le produit. L'axe de largeur fournit le
-// contraste d'affiche sans introduire une seconde famille.
-const archivo = Archivo({
+// La police de generathon.tech.
+const geist = Geist({
   subsets: ["latin"],
-  axes: ["wdth"],
-  variable: "--font-archivo",
+  variable: "--font-geist-sans",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Public vote",
-  description: "Bet on which project wins each track. Live standings.",
-  // Le vote est un écran éphémère destiné à être partagé par QR, pas une
-  // page à référencer : elle ne doit pas concurrencer le site de l'événement.
+  title: "Pronostics — Generathon",
+  description: "Parie sur le projet qui va gagner chaque track. Cotes en direct.",
+  // Page éphémère partagée par QR code : elle ne doit pas concurrencer le
+  // site de l'événement dans les moteurs de recherche.
   robots: { index: false, follow: false },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f4f4f4",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -29,10 +32,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className={archivo.variable}>
-      <body>
-        <div className="grain" aria-hidden="true" />
+    <html lang="fr" className={geist.variable}>
+      <body className="flex min-h-dvh flex-col">
+        <SiteHeader />
         {children}
+        <SiteFooter />
       </body>
     </html>
   );

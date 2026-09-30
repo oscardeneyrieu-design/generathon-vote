@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 
 /**
- * QR + URL lisible. Les deux, pas l'un ou l'autre : au fond d'une salle le
- * QR ne s'accroche pas toujours, et une URL courte se tape.
+ * QR code + adresse lisible. Les deux : au fond d'une salle le QR ne
+ * s'accroche pas toujours, et une adresse courte se tape.
  */
-export function JoinCode({ size = 132 }: { size?: number }) {
+export function JoinCode({ size = 120 }: { size?: number }) {
   const [origin, setOrigin] = useState<string | null>(null);
   const [dataUrl, setDataUrl] = useState<string | null>(null);
 
@@ -15,42 +15,30 @@ export function JoinCode({ size = 132 }: { size?: number }) {
     const url = window.location.origin;
     setOrigin(url);
 
-    void QRCode.toDataURL(url, {
+    QRCode.toDataURL(url, {
       errorCorrectionLevel: "M",
       margin: 0,
       scale: 8,
-      color: { dark: "#282828", light: "#f7f7f7" },
+      color: { dark: "#171717", light: "#ffffff" },
     })
       .then(setDataUrl)
       .catch(() => setDataUrl(null));
   }, []);
 
-  const label = origin?.replace(/^https?:\/\//, "") ?? "…";
-
   return (
-    <div className="flex items-center gap-4">
-      {dataUrl ? (
-        <img
-          src={dataUrl}
-          alt=""
-          width={size}
-          height={size}
-          style={{ width: size, height: size, imageRendering: "pixelated" }}
-        />
-      ) : (
-        <div className="skeleton" style={{ width: size, height: size }} />
-      )}
+    <div className="flex items-center gap-5">
+      {/* Fond blanc même en mode sombre : un QR inversé se scanne mal. */}
+      <div className="shrink-0 rounded-xl bg-white p-2.5">
+        {dataUrl ? (
+          <img src={dataUrl} alt="" width={size} height={size} style={{ imageRendering: "pixelated" }} />
+        ) : (
+          <div className="animate-pulse rounded bg-black/10" style={{ width: size, height: size }} />
+        )}
+      </div>
       <div>
-        <div className="t-label text-[color:var(--color-ink-muted)]">Scan to bet</div>
-        <div
-          className="font-extrabold leading-none"
-          style={{
-            fontSize: "clamp(1.1rem, 2vw, 1.75rem)",
-            fontStretch: "88%",
-            letterSpacing: "-0.02em",
-          }}
-        >
-          {label}
+        <div className="label">Scanne pour parier</div>
+        <div className="mt-1 text-2xl font-extrabold tracking-tight sm:text-3xl">
+          {origin?.replace(/^https?:\/\//, "") ?? "…"}
         </div>
       </div>
     </div>

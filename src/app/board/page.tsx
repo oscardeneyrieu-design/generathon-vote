@@ -1,155 +1,105 @@
 "use client";
 
+import { EmptyState, LiveBadge, plural } from "@/components/Bits";
+import { Countdown } from "@/components/Countdown";
 import { JoinCode } from "@/components/JoinCode";
 import { Leaderboard } from "@/components/Leaderboard";
-import { formatOdds } from "@/lib/odds";
+import { OddsChart } from "@/components/OddsChart";
+import { Podium } from "@/components/Podium";
 import { useLive } from "@/lib/use-live";
 
 /** Au-delà, les colonnes deviennent illisibles de loin. */
 const ROWS_PER_TRACK = 5;
 
+/** Proportions communes aux trois graphiques, pour qu'ils soient alignés. */
+const CHART = { width: 480, height: 230 };
+
 /**
- * Écran de projection. Surface distincte tirée du même état : les trois
- * tracks côte à côte, typographie doublée, aucune interaction. Ce n'est pas
- * la page de vote en plus grand.
+ * Onglet « Classement », pensé pour le vidéoprojecteur : les trois tracks
+ * côte à côte. En haut de chaque colonne, la courbe des cotes — même taille
+ * et même hauteur pour les trois — puis le podium et le top 5.
  */
 export default function BoardPage() {
   const live = useLive();
-  const isLoading = live.status === "loading";
-
-  const kicker = isLoading
-    ? "Connecting"
-    : live.status === "error"
-      ? "Offline"
-      : live.votingOpen
-        ? "Betting open"
-        : "Betting closed";
+  const loading = live.status === "loading";
 
   return (
-    <main className="board mx-auto flex min-h-dvh w-full max-w-[110rem] flex-col px-6 py-6">
-      <header className="flex flex-wrap items-end justify-between gap-6 pb-5">
-        <div className="min-w-0 flex-1">
-          <div
-            className={`t-label${
-              live.votingOpen && !isLoading
-                ? " ink-accent"
-                : !live.votingOpen && !isLoading && live.status !== "error"
-                  ? " ink-result"
-                  : " text-[color:var(--color-ink-muted)]"
-            }`}
-          >
-            {kicker}
+    <main className="mx-auto flex w-full max-w-[100rem] flex-1 flex-col gap-8 px-6 py-8 sm:py-10">
+      <header className="flex flex-wrap items-end justify-between gap-6">
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <LiveBadge status={live.status} />
+            {!loading && live.status !== "error" && (
+              <span className={`pill ${live.bettingOpen ? "pill-solid" : "pill-muted"}`}>
+                {live.bettingOpen ? "Paris ouverts" : "Paris clos"}
+              </span>
+            )}
           </div>
-          <h1 className="t-score mt-2">Public vote</h1>
+          <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">Classement en direct</h1>
+          <p className="muted max-w-[62ch]">
+            Chaque track couronne son propre 1er, 2e et 3e. Tu peux parier sur un gagnant dans chacune.
+          </p>
         </div>
 
-        <div className="text-right">
-          <div
-            // Le pouls de la salle, en bleu : c'est le chiffre qui bouge tout
-            // seul pendant toute la soirée.
-            className="font-extrabold leading-none"
-            style={{
-              fontSize: "clamp(2.5rem, 7vw, 4.5rem)",
-              fontStretch: "80%",
-              letterSpacing: "-0.035em",
-              color: isLoading ? undefined : "var(--color-accent)",
-            }}
-          >
-            {isLoading ? "—" : live.board.totalVoters}
+        <div className="flex flex-wrap items-end gap-10">
+          {live.bettingOpen && live.closesAt && <Countdown closesAt={live.closesAt} large />}
+          <div className="text-right">
+            <div className="label">Parieurs</div>
+            <div className="mt-2 text-5xl font-extrabold leading-none tracking-tight sm:text-6xl">
+              {loading ? "—" : live.board.totalVoters}
+            </div>
           </div>
-          <div className="t-label mt-2 text-[color:var(--color-ink-muted)]">Bettors</div>
         </div>
       </header>
 
       {live.status === "error" ? (
-        <p className="t-display flex-1 pt-10">
-          Database unreachable. This screen reconnects on its own.
-        </p>
+        <EmptyState
+          title="Base injoignable"
+          body="Cet écran se reconnecte tout seul dès que la connexion revient."
+        />
       ) : (
         <div
-          className="grid flex-1 gap-6"
-          style={{ gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))" }}
+          className="grid flex-1 items-start gap-6"
+          style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))" }}
         >
-          {isLoading
-            ? Array.from({ length: 3 }).map((_, index) => <ColumnSkeleton key={index} />)
-            : live.board.tracks.map(({ track, standings, voters }) => {
-                const winner = standings.find((standing) => standing.isWinner) ?? null;
+          {loading
+            ? Array.from({ length: 3 }).map((_, index) => <div key={index} className="skeleton h-[32rem]" />)
+            : live.board.tracks.map(({ track, standings, voters, podium }) => (
+                <section key={track.id} className="card flex min-w-0 flex-col gap-5 p-5">
+                  {/* Titre sur une seule ligne : les graphiques qui suivent
+                      démarrent ainsi à la même hauteur dans les trois colonnes. */}
+                  <div className="flex items-baseline justify-between gap-3">
+                    <h2 className="truncate text-2xl font-bold tracking-tight" title={track.name}>
+                      {track.name}
+                    </h2>
+                    <span className="faint shrink-0 text-sm">{plural(voters, "parieur")}</span>
+                  </div>
 
-                return (
-                  <section key={track.id} className="flex min-w-0 flex-col">
-                    <div className="pb-3">
-                      <h2
-                        className="font-extrabold leading-none"
-                        style={{
-                          fontSize: "clamp(1.5rem, 2.6vw, 2.25rem)",
-                          fontStretch: "84%",
-                          letterSpacing: "-0.03em",
-                        }}
-                      >
-                        {track.name}
-                      </h2>
-                      <p className="t-label mt-2 text-[color:var(--color-ink-muted)]">
-                        {voters} {voters === 1 ? "bettor" : "bettors"}
-                      </p>
+                  <div>
+                    <h3 className="label mb-2">Évolution des cotes</h3>
+                    <OddsChart series={live.series.get(track.id) ?? []} {...CHART} />
+                  </div>
+
+                  <Podium podium={podium} large />
+
+                  {standings.length === 0 ? (
+                    <p className="muted text-sm">Pas encore de projet dans cette track.</p>
+                  ) : (
+                    <div>
+                      <Leaderboard standings={standings} limit={ROWS_PER_TRACK} size="lg" />
+                      {standings.length > ROWS_PER_TRACK && (
+                        <p className="faint mt-2 text-sm">+ {standings.length - ROWS_PER_TRACK} de plus</p>
+                      )}
                     </div>
-
-                    {winner && (
-                      <div className="banner banner-win mb-3">
-                        <span className="t-label">Winner</span>
-                        <span
-                          className="font-extrabold"
-                          style={{ fontSize: "1.25rem", fontStretch: "88%", letterSpacing: "-0.02em" }}
-                        >
-                          {winner.name}
-                        </span>
-                        <span className="t-label">
-                          {winner.bets} {winner.bets === 1 ? "bet" : "bets"} at {formatOdds(winner.odds)}
-                        </span>
-                      </div>
-                    )}
-
-                    {standings.length === 0 ? (
-                      <p className="t-meta pt-4">No projects in this track yet.</p>
-                    ) : (
-                      <>
-                        <Leaderboard
-                          standings={standings}
-                          limit={ROWS_PER_TRACK}
-                          scale="board"
-                        />
-                        {standings.length > ROWS_PER_TRACK && (
-                          <p className="t-label mt-2 text-[color:var(--color-ink-muted)]">
-                            +{standings.length - ROWS_PER_TRACK} more
-                          </p>
-                        )}
-                      </>
-                    )}
-                  </section>
-                );
-              })}
+                  )}
+                </section>
+              ))}
         </div>
       )}
 
-      <footer className="pt-8">
+      <div className="card p-5">
         <JoinCode />
-      </footer>
-    </main>
-  );
-}
-
-function ColumnSkeleton() {
-  return (
-    <div>
-      <div className="skeleton h-9 w-3/4" />
-      <div className="mt-5" style={{ borderTop: "3px solid var(--color-ink)" }}>
-        {Array.from({ length: ROWS_PER_TRACK }).map((_, index) => (
-          <div
-            key={index}
-            className="skeleton"
-            style={{ height: "3.5rem", marginBottom: 1, opacity: 1 - index * 0.15 }}
-          />
-        ))}
       </div>
-    </div>
+    </main>
   );
 }

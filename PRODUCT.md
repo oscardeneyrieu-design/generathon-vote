@@ -24,13 +24,13 @@ Un pari en deux taps, sans compte ni installation, et le pronostic de la salle a
 
 ## Brand Personality
 
-Sec, sportif, sans commentaire. L'interface ne félicite personne et ne met pas d'emoji sur les résultats : elle affiche des chiffres, gros, et les laisse parler. Le ton des libellés est celui d'un tableau d'affichage, pas celui d'une application grand public. Trois mots : direct, imprimé, implacable.
+Direct et sobre. L'interface affiche des chiffres, gros, et les laisse parler ; le tutoiement et le ton sont ceux de generathon.tech.
 
-Le produit est destiné à vivre à l'intérieur de generathon.tech : il ne porte donc aucun nom propre, aucun logo, aucune signature. Il s'appelle « Public vote » parce que c'est ce qu'il est.
+Le produit vit à l'intérieur de l'univers generathon.tech : il en reprend le logo, la police, l'accent doré et la structure en onglets (voir DESIGN.md).
 
 ## Anti-references
 
-Pas l'esthétique sondage-en-ligne (Google Forms, Slido, Mentimeter) : cartes arrondies, ombres douces, barres de progression multicolores, accents violets. Pas non plus le registre pari sportif (Betclic, Winamax) : dégradés, néons, urgence artificielle, chiffres qui clignotent. Aucune gamification décorative — pas de confettis, pas de badges, pas de sons.
+Pas l'esthétique sondage-en-ligne générique (Google Forms, Slido) : l'identité est celle de generathon.tech. Pas non plus le registre pari sportif (Betclic, Winamax) : dégradés, néons, urgence artificielle, chiffres qui clignotent. Aucune gamification décorative — pas de confettis, pas de sons.
 
 ## Design Principles
 
@@ -44,7 +44,7 @@ Une track, assumée. Le choix de track est structurant, pas un filtre : il occup
 
 Lisible à trois mètres comme à trente centimètres. La même donnée sert un pouce sur un téléphone et une salle devant un vidéoprojecteur ; ce sont deux surfaces distinctes tirées du même état, pas une page responsive qui essaie les deux.
 
-Deux couleurs, deux rôles. Le bleu ne dit qu'une chose — « toi », ta track et ton pari — et le rouge une seule autre — « résultat », le gagnant annoncé. Tout le reste tient en noir et blanc, par inversion et épaisseur de trait. Une couleur qui ne porte pas de rôle n'entre pas dans le système, et aucun état ne repose sur la couleur seule.
+Un seul accent, le doré du site. Il signale ce qui te concerne ou ce qui est décidé — ta track, ton pari, le podium — et tout le reste tient en noir et blanc. Aucun état ne repose sur la couleur seule : un libellé l'accompagne toujours.
 
 Aucun écran n'affirme avant de savoir. Tant que l'état n'est pas lu, les trois surfaces montrent un chargement, jamais une valeur par défaut : dire « vote fermé » pendant une demi-seconde sur l'écran projeté est un mensonge que personne ne rattrape.
 

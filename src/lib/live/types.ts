@@ -1,11 +1,6 @@
-import type { Bet, Project, Track } from "@/lib/types";
+import type { Snapshot } from "@/lib/store/types";
 
-export type Snapshot = {
-  votingOpen: boolean;
-  tracks: Track[];
-  projects: Project[];
-  bets: Bet[];
-};
+export type { Snapshot };
 
 export type TransportStatus = "live" | "reconnecting";
 

@@ -1,423 +1,158 @@
 @import "tailwindcss";
 
 /* ------------------------------------------------------------------ tokens
-   Achromatique par contrainte : chroma 0 partout. Aucun état ne peut donc se
-   rattraper avec une teinte — tout passe par l'inversion et l'épaisseur. */
+   Repris de generathon.tech : blanc / quasi-noir, police Geist, un seul
+   accent doré. Le mode sombre suit le réglage du téléphone ou du PC. */
 
 @theme {
-  --color-paper: oklch(0.968 0 0);
-  --color-paper-sunk: oklch(0.93 0 0);
-  --color-ink: oklch(0.155 0 0);
-  --color-ink-muted: oklch(0.43 0 0);
-  --color-ink-faint: oklch(0.62 0 0);
+  --color-gold: #e4b363;
+  --color-gold-hover: #d9a24f;
+  /* Doré assombri pour du texte sur fond blanc (le #e4b363 y serait illisible). */
+  --color-gold-ink: #8f6420;
 
-  /* Deux familles, deux rôles. Le bleu, c'est le pari en cours : les barres
-     de cote, l'indicateur direct, les étapes du parcours, et — à sa plus
-     forte intensité — ton propre pari. Le rouge, c'est ce qui est décidé :
-     le gagnant, et la clôture. Trois paliers de bleu pour que la couleur
-     soit présente à l'écran dès la première seconde sans crier. */
-  --color-accent: oklch(0.42 0.13 252);
-  --color-accent-mid: oklch(0.845 0.075 252);
-  --color-accent-soft: oklch(0.925 0.035 252);
-
-  --color-result: oklch(0.44 0.17 27);
-  --color-result-soft: oklch(0.905 0.055 27);
-
-  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
-
-  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 :root {
-  --rule: 1px;
-  --rule-thick: 3px;
+  --background: #ffffff;
+  --foreground: #171717;
+  /* Trait doré des graphiques : plus soutenu sur fond clair. */
+  --gold-line: #c08a2e;
+  /* Bleu « tes paris » : tes projets dans les cartes, classements et courbes. */
+  --mine: #2563eb;
+  color-scheme: light dark;
+}
 
-  --z-grain: 100;
-  --z-sticky: 200;
-  --z-overlay: 300;
-
-  --dur-fast: 150ms;
-  --dur-bar: 220ms;
-  --dur-flip: 260ms;
-
-  color-scheme: light;
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+    --gold-line: #e4b363;
+    --mine: #60a5fa;
+  }
 }
 
 /* ------------------------------------------------------------------- base */
 
-* {
-  border-radius: 0 !important; /* aucun angle arrondi dans le système */
-}
-
-html {
-  -webkit-text-size-adjust: 100%;
-}
-
 body {
-  background: var(--color-paper);
-  color: var(--color-ink);
+  background: var(--background);
+  color: var(--foreground);
   font-family: var(--font-sans);
-  font-size: 0.9375rem;
-  line-height: 1.5;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums; /* les cotes changent sans faire danser la page */
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-  overflow-x: hidden;
-}
-
-::selection {
-  background: var(--color-ink);
-  color: var(--color-paper);
 }
 
 :focus-visible {
-  outline: 3px solid var(--color-ink);
-  outline-offset: 3px;
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
 }
 
-::placeholder {
-  color: var(--color-ink-muted); /* 7.2:1 — pas le gris clair par défaut */
-  opacity: 1;
-}
+/* -------------------------------------------------------------- composants */
 
-/* ------------------------------------------------------------------ grain
-   Bruit d'impression figé. Jamais animé : une texture qui bouge coûte des
-   frames sur téléphone pour zéro information. */
+@layer components {
+  .card {
+    @apply rounded-xl border border-black/10 dark:border-white/15;
+  }
 
-.grain {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-grain);
-  pointer-events: none;
-  opacity: 0.16;
-  mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
-}
+  .btn {
+    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-gold {
+    @apply bg-gold text-black enabled:hover:bg-gold-hover;
+  }
+  .btn-outline {
+    @apply border border-black/15 enabled:hover:border-gold dark:border-white/20;
+  }
+  .btn-danger {
+    @apply bg-red-600 text-white;
+  }
 
-@media (prefers-reduced-transparency: reduce) {
-  .grain {
-    display: none;
+  .field {
+    @apply w-full rounded-lg border border-black/15 bg-black/[.03] px-3.5 py-2.5 text-sm outline-none focus:border-gold disabled:opacity-50 dark:border-white/15 dark:bg-white/[.05];
+  }
+
+  .pill {
+    @apply inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+  .pill-gold {
+    @apply bg-gold/15 text-gold-ink dark:text-gold;
+  }
+  .pill-solid {
+    @apply bg-gold text-black;
+  }
+  /* Ton pari : bleu, partout où il apparaît. */
+  .pill-mine {
+    @apply bg-blue-600 text-white;
+  }
+  .pill-muted {
+    @apply bg-black/[.06] text-black/60 dark:bg-white/[.08] dark:text-white/60;
+  }
+
+  /* Titre de section façon « LES ÉDITIONS » sur generathon.tech. */
+  .section-title {
+    @apply mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-black/50 dark:text-white/50;
+  }
+  .label {
+    @apply text-xs font-semibold uppercase tracking-wide text-black/50 dark:text-white/50;
+  }
+
+  .muted {
+    @apply text-black/60 dark:text-white/60;
+  }
+  .faint {
+    @apply text-black/45 dark:text-white/45;
+  }
+
+  .skeleton {
+    @apply animate-pulse rounded-xl bg-black/[.05] dark:bg-white/[.06];
   }
 }
 
-/* Sur un vidéoprojecteur, le grain cesse d'être une texture et devient du
-   bruit : on le retire de l'écran de projection au-delà de 1600px. */
-@media (min-width: 1600px) {
-  body:has(.board) .grain {
-    display: none;
-  }
-}
+/* --------------------------------------------------------------- wordmark
+   Le logo texte de generathon.tech : serif gras, léger décalage rouge/cyan. */
 
-/* -------------------------------------------------------------- typography */
-
-.t-display {
-  font-size: clamp(1.75rem, 5vw, 3rem);
+.wordmark {
+  display: inline-block;
+  font-family: Georgia, "Times New Roman", serif;
   font-weight: 800;
-  font-stretch: 85%;
-  letter-spacing: -0.03em;
-  line-height: 0.95;
-  text-wrap: balance;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  color: #14161f;
+  text-shadow:
+    0.7px 0 #ff2d55,
+    -0.7px 0 #00e5ff;
 }
 
-.t-score {
-  font-size: clamp(3.5rem, 11vw, 6rem);
-  font-weight: 800;
-  font-stretch: 80%;
-  letter-spacing: -0.035em;
-  line-height: 0.85;
+.wordmark .wm-h {
+  display: inline-block;
+  margin-right: 0.06em;
+  transform: skew(-7deg);
+  transform-origin: bottom;
 }
 
-.t-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.t-meta {
-  font-size: 0.8125rem;
-  color: var(--color-ink-muted);
-}
-
-/* ------------------------------------------------------------------ rules */
-
-.rule {
-  border: 0;
-  border-top: var(--rule) solid var(--color-ink);
-  margin: 0;
-}
-
-.rule-thick {
-  border-top-width: var(--rule-thick);
-}
-
-/* ---------------------------------------------------------------- buttons */
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  min-height: 44px;
-  padding: 0.5rem 1rem;
-  border: 2px solid var(--color-ink);
-  background: var(--color-paper);
-  color: var(--color-ink);
-  font: inherit;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition:
-    background var(--dur-fast) var(--ease-out-expo),
-    color var(--dur-fast) var(--ease-out-expo);
-}
-
-.btn:hover:not(:disabled) {
-  background: var(--color-ink);
-  color: var(--color-paper);
-}
-
-.btn:active:not(:disabled) {
-  transform: translateY(1px);
-}
-
-.btn-solid {
-  background: var(--color-ink);
-  color: var(--color-paper);
-}
-
-.btn-solid:hover:not(:disabled) {
-  background: var(--color-paper);
-  color: var(--color-ink);
-}
-
-.btn:disabled {
-  border-color: var(--color-ink-faint);
-  color: var(--color-ink-faint);
-  background: var(--color-paper);
-  cursor: not-allowed;
-}
-
-/* ----------------------------------------------------------------- inputs */
-
-.field {
-  width: 100%;
-  min-height: 44px;
-  padding: 0.5rem 0.75rem;
-  border: 2px solid var(--color-ink);
-  background: var(--color-paper);
-  color: var(--color-ink);
-  font: inherit;
-}
-
-/* ------------------------------------------------------------- team tiles */
-
-.tile {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 0.75rem;
-  min-height: 92px;
-  padding: 0.75rem;
-  border: 2px solid var(--color-ink);
-  background: var(--color-paper);
-  color: var(--color-ink);
-  text-align: left;
-  cursor: pointer;
-  transition:
-    background var(--dur-fast) var(--ease-out-expo),
-    color var(--dur-fast) var(--ease-out-expo),
-    border-width var(--dur-fast) var(--ease-out-expo);
-}
-
-@media (hover: hover) {
-  .tile:hover:not(:disabled) {
-    border-width: 4px;
-    padding: calc(0.75rem - 2px);
+@media (prefers-color-scheme: dark) {
+  .wordmark {
+    color: #f5f3ec;
   }
 }
 
-@media (hover: hover) {
-  .tile:hover:not(:disabled):not(.tile-mine):not(.tile-win) {
-    border-color: var(--color-accent);
-  }
-}
+/* -------------------------------------------------------------- classement
+   Barre de proportion en fond de ligne. scaleX plutôt que width : pas de
+   recalcul de mise en page à chaque image. */
 
-/* Track simplement consultée. Distincte de « ton pari » : un aplat plein
-   ferait croire qu'on a parié dessus alors qu'on ne fait que la regarder. */
-.tile-viewing {
-  border-color: var(--color-accent);
-  border-width: 4px;
-  padding: calc(0.75rem - 2px);
-  background: var(--color-accent-soft);
-}
-
-/* Pari confirmé : pas de transition, le retour précède la perception. */
-.tile-mine {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-paper);
-  transition: none;
-}
-
-.tile:disabled {
-  border-color: var(--color-ink-faint);
-  color: var(--color-ink-faint);
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.tile-mine:disabled {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-paper);
-  opacity: 0.8;
-}
-
-/* Gagnant : le rouge, plus un double contour. La couleur seule ne porte
-   jamais l'état — le contour le dit aussi, et le libellé WINNER également. */
-.tile-win,
-.tile-win:disabled {
-  background: var(--color-result);
-  border-color: var(--color-result);
-  color: var(--color-paper);
-  opacity: 1;
-  box-shadow:
-    0 0 0 3px var(--color-paper),
-    0 0 0 6px var(--color-result);
-}
-
-/* Avoir parié sur le gagnant : fond rouge du résultat, anneau bleu du pari. */
-.tile-win.tile-mine,
-.tile-win.tile-mine:disabled {
-  box-shadow:
-    0 0 0 3px var(--color-paper),
-    0 0 0 6px var(--color-accent);
-}
-
-.tile-name {
-  font-size: 1.0625rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  line-height: 1.15;
-  overflow-wrap: anywhere;
-}
-
-/* -------------------------------------------------------------- rank rows */
-
-.rank-row {
-  position: relative;
-  display: grid;
-  grid-template-columns: 2.5rem 1fr auto;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.6rem 0.75rem;
-  border-bottom: var(--rule) solid var(--color-ink);
-  isolation: isolate;
-}
-
-/* Barre de proportion en fond de ligne : la donnée EST la ligne, pas un
-   élément décoratif posé à côté. scaleX plutôt que width — la barre vit dans
-   le flux d'une liste et animer width déclencherait un reflow par frame. */
 .rank-bar {
   position: absolute;
-  inset: 0 auto 0 0;
-  width: 100%;
+  inset: 0;
   z-index: -1;
-  /* Bleu par défaut : c'est le marché en cours. C'est aussi ce qui met de la
-     couleur sur chaque classement dès l'ouverture de la page, sans que
-     personne ait eu à toucher quoi que ce soit. */
-  background: var(--color-accent-soft);
   transform-origin: left center;
-  transition: transform var(--dur-bar) var(--ease-out-expo);
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  background: color-mix(in srgb, var(--color-gold) 14%, transparent);
 }
 
-.rank-row-mine .rank-bar {
-  background: var(--color-accent-mid);
+.rank-bar-mine {
+  background: color-mix(in srgb, var(--mine) 22%, transparent);
 }
-
-.rank-row-win {
-  border-bottom-width: var(--rule-thick);
-  border-bottom-color: var(--color-result);
-}
-
-.rank-row-win .rank-bar {
-  background: var(--color-result-soft);
-}
-
-.rank-num {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--color-ink-muted);
-}
-
-/* La cote. Le chiffre reste en encre : le colorer ferait croire que la
-   couleur qualifie la cote, alors qu'elle qualifie la ligne. */
-.rank-odds {
-  font-size: 1.5rem;
-  font-weight: 800;
-  font-stretch: 90%;
-  letter-spacing: -0.02em;
-  line-height: 1;
-}
-
-/* Libellés d'état sur fond papier. */
-.ink-accent {
-  color: var(--color-accent);
-}
-
-.ink-result {
-  color: var(--color-result);
-}
-
-/* Liens et bascules : le bleu signale ce sur quoi on peut agir. */
-.link-accent {
-  color: var(--color-accent);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  font-weight: 600;
-}
-
-/* ---------------------------------------------------------------- banners */
-
-.banner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.75rem;
-  padding: 0.6rem 1rem;
-  background: var(--color-ink);
-  color: var(--color-paper);
-}
-
-/* Ce qui est décidé prend le rouge : l'annonce d'un gagnant, et la clôture
-   des paris. Ce sont les deux seuls aplats rouges pleine largeur. */
-.banner-win,
-.banner-closed {
-  background: var(--color-result);
-}
-
-/* --------------------------------------------------------------- skeleton */
-
-.skeleton {
-  background: var(--color-paper-sunk);
-  animation: pulse 1.4s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.55;
-  }
-}
-
-/* ------------------------------------------------------------------ motion */
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -426,9 +161,5 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-  }
-
-  .rank-bar {
-    transition: none;
   }
 }

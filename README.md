@@ -1,14 +1,23 @@
-# Public vote — Generathon #2
+# Pronostics du public — Generathon #2
 
 Le public parie sur le projet qui va gagner chaque track. Classements en direct, du samedi jusqu'à l'annonce des gagnants.
 
 ## Le parcours
 
-1. **Une track** — *Three Minutes to Move*, *Animate the Shift* ou *Sell the Feeling*. Une seule, et ce choix est enregistré.
-2. **Un projet** dans cette track.
-3. Les cotes bougent en direct, sur le téléphone comme sur l'écran projeté.
+1. **Une track** — *Three Minutes to Move*, *Animate the Shift* ou *Sell the Feeling*.
+2. **Un projet** dans cette track : chaque carte montre les personnes de l'équipe, avec leur photo.
+3. On recommence dans les autres tracks : **un pari par track**, donc jusqu'à trois paris par personne.
+4. Les cotes bougent en direct, sur le téléphone comme sur l'écran projeté. Tes paris ressortent en bleu partout.
 
-Un pari par appareil. Modifiable à volonté — track comprise — tant que le vote est ouvert.
+Un pari par appareil et par track, modifiable à volonté tant que les paris sont ouverts.
+
+## L'horloge
+
+Dans `/admin`, choisis le jour et l'heure de fin (par défaut le prochain dimanche à 14 h), puis **Lancer le compte à rebours**. Les paris s'ouvrent, le compte à rebours défile sur les téléphones, sur le grand écran et dans l'admin, et à l'heure dite tout se ferme seul : les écrans basculent d'eux-mêmes et le serveur refuse tout pari arrivé après (c'est l'heure du serveur qui fait foi, pas celle du téléphone). On peut changer l'heure, fermer plus tôt, ou ouvrir sans heure de fin.
+
+## L'accès admin
+
+Le bouton **Admin** mène à `/admin`, protégé par un code : la valeur de `ADMIN_CODE` dans `.env.local` (et, une fois en ligne, dans les variables d'environnement Vercel). Le code n'est jamais stocké dans le navigateur : après connexion, le serveur pose un cookie signé avec ce code, valable 12 h. Changer `ADMIN_CODE` déconnecte tout le monde. Après 8 essais ratés en une minute, la connexion est bloquée une minute.
 
 **Chaque track a son gagnant. Il n'y a pas de vainqueur au-dessus des trois** : elles ne sont jamais comparées entre elles, et aucun écran n'affiche de part d'une track dans le total.
 
@@ -30,11 +39,11 @@ Tout est dans [`src/lib/odds.ts`](src/lib/odds.ts).
 
 | Route | Pour qui | Quoi |
 |---|---|---|
-| `/` | le public | Choix de la track, grille des projets, classement en direct |
-| `/board` | le vidéoprojecteur | Les trois tracks en colonnes, top 5 chacune, QR code pour rejoindre |
-| `/admin` | l'organisateur | Ouvrir/fermer le vote, saisir les projets, annoncer les gagnants |
+| `/` (onglet **Parier**) | le public | Choix de la track, cartes des projets, classement en direct, courbe des cotes |
+| `/board` (onglet **Classement**) | le public et le vidéoprojecteur | Les trois tracks en colonnes, top 5 chacune, QR code pour rejoindre |
+| `/admin` (bouton **Admin**) | l'organisateur | Ouvrir/fermer les paris, saisir les projets, annoncer le podium |
 
-Aucun nom de produit n'apparaît dans l'interface : elle est faite pour vivre à l'intérieur de generathon.tech.
+L'interface reprend l'identité de generathon.tech (en-tête, police Geist, accent doré, cartes arrondies) pour y paraître intégrée. Elle est en français et suit le mode clair/sombre de l'appareil.
 
 ---
 
@@ -88,7 +97,7 @@ L'URL de déploiement est celle qui s'affiche en QR code sur `/board`.
 
 ### Intégration à generathon.tech
 
-Le plus simple est un sous-domaine (`vote.generathon.tech`) pointé sur le déploiement Vercel, avec un lien depuis l'espace participant. L'application est aussi encapsulable en `<iframe>` : elle n'a ni en-tête ni pied de page propre, et `/` tient dans 52 rem de large. Les pages sont en `noindex` pour ne pas concurrencer le site de l'événement dans les moteurs de recherche.
+Le plus simple est un sous-domaine (`vote.generathon.tech`) pointé sur le déploiement Vercel, avec un lien depuis l'espace participant. Les pages sont en `noindex` pour ne pas concurrencer le site de l'événement dans les moteurs de recherche.
 
 ---
 
@@ -96,14 +105,15 @@ Le plus simple est un sous-domaine (`vote.generathon.tech`) pointé sur le dépl
 
 **Samedi, dès que les équipes sont formées**
 
-1. `/admin` → pour chaque track, *Paste the whole list* → une ligne par projet, `Projet | Équipe` (et `| Marque` sur la track Ad). Le séparateur accepte aussi la tabulation, donc un copier-coller depuis un tableur fonctionne.
-2. **Open betting**. Les paris commencent.
+1. `/admin` → pour chaque track, *Coller toute la liste* → une ligne par projet, `Projet | Équipe | Membres` (et `Projet | Équipe | Marque | Membres` sur la track Ad), les membres séparés par des virgules. Le séparateur accepte aussi la tabulation, donc un copier-coller depuis un tableur fonctionne.
+2. Les photos : sous chaque projet, *Ajouter les membres* → *Ajouter une photo* pour chaque personne. La photo est recadrée en carré et allégée automatiquement.
+3. Choisis l'heure de fin et **Lancer le compte à rebours**. Les paris commencent.
 
-**Pendant le build** — tu peux corriger un nom, ajouter un projet en retard, tout se met à jour en direct sur les téléphones. Attention : *Replace* efface les paris de la track concernée, contrairement au bouton *Save* d'une ligne, qui les conserve.
+**Pendant le build** — tu peux corriger un nom, ajouter un projet en retard, tout se met à jour en direct sur les téléphones. Attention : *Remplacer* efface les paris de la track concernée, contrairement au bouton *Enregistrer* d'une ligne, qui les conserve.
 
 **Dimanche 17h30, Live Demo** — `/board` en plein écran (F11) sur l'écran projeté.
 
-**Dimanche 18h30, annonce** — **Close betting**, puis choisis le gagnant de chaque track dans le menu déroulant. Le bandeau apparaît instantanément partout, avec le pourcentage de gens qui l'avaient prédit.
+**À l'heure de fin**, les paris se ferment seuls. **Annonce** — choisis le 1er, le 2e et le 3e de chaque track dans les menus du podium. Le podium apparaît instantanément sur les téléphones et le grand écran.
 
 Garde `/admin` sur un appareil que tu ne projettes pas. Les actions destructives demandent une confirmation en deux temps, mais mieux vaut ne pas les avoir sous les yeux de la salle.
 
@@ -116,7 +126,7 @@ npm test         # calcul des classements : ex æquo, arrondis, division par zé
 npm run smoke    # parcours complet contre un serveur qui tourne
 ```
 
-`smoke` crée un projet jetable, parie dessus, vérifie qu'un pari hors track et qu'un pari après clôture sont refusés, puis supprime tout et restaure l'état d'ouverture du vote. Tes vrais projets et paris ne sont pas touchés.
+`smoke` crée deux projets jetables, leur ajoute un membre avec photo, parie dans deux tracks, vérifie qu'un pari hors track, qu'un pari après l'heure de fin et qu'un pari après clôture sont refusés, puis supprime tout et restaure l'état des paris (heure de fin comprise). Tes vrais projets et paris ne sont pas touchés.
 
 À lancer contre le déploiement une fois en ligne :
 
@@ -140,7 +150,7 @@ Le cookie admin est un HMAC dont la clé est `ADMIN_CODE` : il n'est pas forgeab
 
 | Quoi | Où |
 |---|---|
-| Direction artistique (couleurs + typo) | `src/app/globals.css` → bloc `@theme` |
+| Couleurs (doré, fonds) et composants | `src/app/globals.css` → blocs `@theme` et `@layer components` |
 | Formule des cotes, plafond, seuil « peu de paris » | `src/lib/odds.ts` |
 | Noms et challenges des tracks | `/admin`, ou `src/lib/tracks.ts` pour le seed |
 | Fréquence de recalcul des classements (400 ms) | `src/lib/use-live.ts` → `THROTTLE_MS` |
@@ -149,4 +159,4 @@ Le cookie admin est un HMAC dont la clé est `ADMIN_CODE` : il n'est pas forgeab
 | Plafond de projets par track (40) | `src/app/api/admin/projects/route.ts` → `MAX_PER_TRACK` |
 | Durée de la session admin (12 h) | `src/app/api/admin/session/route.ts` → `maxAge` |
 
-Le système visuel — tokens, typographie, états, motion — est documenté dans [`DESIGN.md`](DESIGN.md) ; le cadrage produit dans [`PRODUCT.md`](PRODUCT.md).
+Le système visuel est documenté dans [`DESIGN.md`](DESIGN.md) ; le cadrage produit dans [`PRODUCT.md`](PRODUCT.md).

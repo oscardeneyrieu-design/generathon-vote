@@ -24,3 +24,4 @@ next-env.d.ts
 
 # Réglages Claude Code propres à cette machine (chemins locaux).
 .claude/settings.local.json
+.backup-avant-refonte/

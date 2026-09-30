@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { Rule } from "@/components/Bits";
+import { Notice } from "@/components/Bits";
 
 export function AdminLogin() {
   const router = useRouter();
@@ -25,59 +25,53 @@ export function AdminLogin() {
 
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(body?.error ?? "Wrong code.");
+        throw new Error(body?.error ?? "Code incorrect.");
       }
 
       router.refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Wrong code.");
+      setError(cause instanceof Error ? cause.message : "Code incorrect.");
       setBusy(false);
     }
   }
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-[26rem] px-4 pt-6">
-      <span className="t-label">Public vote — Admin</span>
-      <Rule thick />
-
-      <h1 className="t-display pt-6">Access code</h1>
-      <p className="t-meta mt-2">
-        It guards opening and closing the vote. Set by the <code>ADMIN_CODE</code> environment
-        variable.
-      </p>
-
-      <form onSubmit={submit} className="mt-6">
-        <label className="t-label block" htmlFor="admin-code">
-          Code
-        </label>
-        <input
-          id="admin-code"
-          className="field mt-2"
-          type="password"
-          value={code}
-          autoComplete="current-password"
-          autoFocus
-          onChange={(event) => setCode(event.target.value)}
-          aria-describedby={error ? "admin-code-error" : undefined}
-          aria-invalid={error ? true : undefined}
-        />
-
-        {error && (
-          <p
-            id="admin-code-error"
-            role="alert"
-            className="mt-3 border-2 border-[color:var(--color-ink)] px-3 py-2 text-sm font-semibold"
-          >
-            {error}
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-6 py-12">
+      <form
+        onSubmit={submit}
+        className="mx-auto flex w-full max-w-md flex-col gap-5 rounded-3xl border border-black/10 bg-black/[.02] p-6 sm:p-8 dark:border-white/15 dark:bg-white/[.03]"
+      >
+        <div className="flex flex-col gap-1 text-center">
+          <h1 className="text-2xl font-extrabold tracking-tight">Espace organisateur</h1>
+          <p className="muted text-sm">
+            Ouvrir et fermer les paris, saisir les projets, annoncer les gagnants.
           </p>
-        )}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="label" htmlFor="admin-code">
+            Code d&apos;accès
+          </label>
+          <input
+            id="admin-code"
+            className="field"
+            type="password"
+            value={code}
+            autoComplete="current-password"
+            autoFocus
+            onChange={(event) => setCode(event.target.value)}
+            aria-invalid={error ? true : undefined}
+          />
+        </div>
+
+        {error && <Notice>{error}</Notice>}
 
         <button
           type="submit"
-          className="btn btn-solid mt-4 w-full"
+          className="btn btn-gold rounded-xl py-3 text-base font-bold"
           disabled={busy || code.length === 0}
         >
-          {busy ? "Checking…" : "Enter"}
+          {busy ? "Vérification…" : "Entrer"}
         </button>
       </form>
     </main>

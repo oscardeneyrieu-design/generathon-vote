@@ -1,16 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { isAdmin } from "@/lib/admin-auth";
+import { adminGuard } from "@/lib/admin-auth";
 import { getStore } from "@/lib/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-async function guard() {
-  return (await isAdmin())
-    ? null
-    : NextResponse.json({ error: "Admin session required." }, { status: 401 });
-}
 
 function clean(value: unknown, max: number): string | null {
   if (typeof value !== "string") return null;
@@ -20,7 +14,7 @@ function clean(value: unknown, max: number): string | null {
 
 /** Renomme une track ou change sa ligne de contexte. */
 export async function PATCH(request: Request) {
-  const denied = await guard();
+  const denied = await adminGuard();
   if (denied) return denied;
 
   const payload = (await request.json().catch(() => null)) as Record<string, unknown> | null;
@@ -29,46 +23,69 @@ export async function PATCH(request: Request) {
   const subtitle = clean(payload?.subtitle ?? "", 160);
 
   if (typeof id !== "string" || !name || name.length === 0 || subtitle === null) {
-    return NextResponse.json({ error: "Invalid track update." }, { status: 400 });
+    return NextResponse.json({ error: "Modification de track invalide." }, { status: 400 });
   }
 
   try {
     await (await getStore()).updateTrack(id, name, subtitle);
     return NextResponse.json({ ok: true });
   } catch {
-    return NextResponse.json({ error: "Could not update track." }, { status: 503 });
+    return NextResponse.json({ error: "Impossible de modifier la track." }, { status: 503 });
   }
 }
 
+function slot(value: unknown): string | null | undefined {
+  if (value === null || value === undefined || value === "") return null;
+  return typeof value === "string" ? value : undefined;
+}
+
 /**
- * Désigne le gagnant d'une track. `null` efface la désignation — c'est le
- * moyen de corriger une annonce faite trop vite devant la salle.
+ * Annonce le podium d'une track : 1er, 2e, 3e. Chaque place accepte `null`,
+ * ce qui permet d'en annoncer une à la fois — et de corriger une place
+ * donnée trop vite devant la salle.
  */
 export async function PUT(request: Request) {
-  const denied = await guard();
+  const denied = await adminGuard();
   if (denied) return denied;
 
   const payload = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const id = payload?.id;
-  const winnerProjectId = payload?.winnerProjectId ?? null;
+  const first = slot(payload?.first);
+  const second = slot(payload?.second);
+  const third = slot(payload?.third);
 
-  if (typeof id !== "string" || (winnerProjectId !== null && typeof winnerProjectId !== "string")) {
-    return NextResponse.json({ error: "Invalid winner." }, { status: 400 });
+  if (
+    typeof id !== "string" ||
+    first === undefined ||
+    second === undefined ||
+    third === undefined
+  ) {
+    return NextResponse.json({ error: "Podium invalide." }, { status: 400 });
+  }
+
+  const filled = [first, second, third].filter((value): value is string => value !== null);
+  if (new Set(filled).size !== filled.length) {
+    return NextResponse.json(
+      { error: "Un projet ne peut pas occuper deux places du podium." },
+      { status: 409 }
+    );
   }
 
   try {
     const store = await getStore();
 
-    if (winnerProjectId && !(await store.projectBelongsToTrack(winnerProjectId, id))) {
-      return NextResponse.json(
-        { error: "That project is not in this track." },
-        { status: 409 }
-      );
+    for (const projectId of filled) {
+      if (!(await store.projectBelongsToTrack(projectId, id))) {
+        return NextResponse.json(
+          { error: "Ce projet n'est pas dans cette track." },
+          { status: 409 }
+        );
+      }
     }
 
-    await store.setWinner(id, winnerProjectId);
+    await store.setPodium(id, { first, second, third });
     return NextResponse.json({ ok: true });
   } catch {
-    return NextResponse.json({ error: "Could not set winner." }, { status: 503 });
+    return NextResponse.json({ error: "Impossible d'enregistrer le podium." }, { status: 503 });
   }
 }

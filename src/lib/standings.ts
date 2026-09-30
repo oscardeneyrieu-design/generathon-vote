@@ -1,14 +1,22 @@
 // Extension explicite : les tests tournent sous le type-stripping de Node,
 // qui n'a pas la résolution du bundler.
 import { computeOdds } from "./odds.ts";
-import type { Bet, Board, Project, Standing, Track, TrackBoard } from "./types";
+import type { Bet, Board, Place, Project, Standing, Track, TrackBoard } from "./types.ts";
+
+/** La place d'un projet sur le podium de sa track, si elle est annoncée. */
+export function placeOf(track: Track, projectId: string): Place | null {
+  if (track.first_project_id === projectId) return 1;
+  if (track.second_project_id === projectId) return 2;
+  if (track.third_project_id === projectId) return 3;
+  return null;
+}
 
 /**
  * Dénormalise paris + projets en trois classements indépendants.
  *
- * Les trois tracks ne se comparent pas : chacune a son gagnant, aucune
- * n'est « devant » une autre. Rien ici ne produit donc de part d'une track
- * dans le total, ni de classement global.
+ * Chaque personne peut parier dans chacune des tracks (un pari par track).
+ * Les trois tracks ne se comparent pas : chacune a son podium et aucune
+ * n'est « devant » une autre.
  */
 export function computeBoard(
   tracks: Track[],
@@ -18,30 +26,28 @@ export function computeBoard(
 ): Board {
   const perProject = new Map<string, number>();
   const perTrack = new Map<string, number>();
-  let myTrackId: string | null = null;
-  let myProjectId: string | null = null;
+  const mine = new Map<string, string>();
+  const voters = new Set<string>();
 
   for (const bet of bets) {
     perProject.set(bet.project_id, (perProject.get(bet.project_id) ?? 0) + 1);
     perTrack.set(bet.track_id, (perTrack.get(bet.track_id) ?? 0) + 1);
-
-    if (myVoterId && bet.voter_id === myVoterId) {
-      myTrackId = bet.track_id;
-      myProjectId = bet.project_id;
-    }
+    voters.add(bet.voter_id);
+    if (myVoterId && bet.voter_id === myVoterId) mine.set(bet.track_id, bet.project_id);
   }
 
   const boards: TrackBoard[] = [...tracks]
     .sort((a, b) => a.position - b.position)
     .map((track) => {
-      const voters = perTrack.get(track.id) ?? 0;
+      const trackVoters = perTrack.get(track.id) ?? 0;
       const inTrack = projects.filter((project) => project.track_id === track.id);
+      const myProjectId = mine.get(track.id) ?? null;
 
       const sorted = [...inTrack].sort((a, b) => {
         const diff = (perProject.get(b.id) ?? 0) - (perProject.get(a.id) ?? 0);
         if (diff !== 0) return diff;
         // Sans ce second critère, les projets à zéro pari se réordonneraient
-        // à chaque recalcul et le classement tremblerait avant le premier pari.
+        // à chaque recalcul et le classement tremblerait.
         return a.name.localeCompare(b.name, "en");
       });
 
@@ -61,21 +67,22 @@ export function computeBoard(
           team: project.team,
           brand: project.brand,
           bets: count,
-          odds: computeOdds(count, voters, inTrack.length),
-          support: voters === 0 ? 0 : count / voters,
+          odds: computeOdds(count, trackVoters, inTrack.length),
+          support: trackVoters === 0 ? 0 : count / trackVoters,
           rank,
-          isWinner: track.winner_project_id === project.id,
+          place: placeOf(track, project.id),
           isMine: myProjectId === project.id,
         } satisfies Standing;
       });
 
-      return { track, standings, voters } satisfies TrackBoard;
+      // Le podium suit l'ordre annoncé, pas l'ordre des paris : un outsider
+      // peut gagner, et c'est précisément ce qu'on veut pouvoir montrer.
+      const podium = ([1, 2, 3] as Place[])
+        .map((place) => standings.find((standing) => standing.place === place))
+        .filter((standing): standing is Standing => standing !== undefined);
+
+      return { track, standings, voters: trackVoters, podium, myProjectId } satisfies TrackBoard;
     });
 
-  return {
-    tracks: boards,
-    totalVoters: bets.length,
-    myTrackId,
-    myProjectId,
-  };
+  return { tracks: boards, totalVoters: voters.size, myBetCount: mine.size };
 }

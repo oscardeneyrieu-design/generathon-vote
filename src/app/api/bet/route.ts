@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getStore } from "@/lib/store";
+import { isBettingOpen } from "@/lib/voting";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
   try {
     payload = await request.json();
   } catch {
-    return NextResponse.json({ error: "Malformed request." }, { status: 400 });
+    return NextResponse.json({ error: "Requête illisible." }, { status: 400 });
   }
 
   const { trackId, projectId, voterId } = (payload ?? {}) as Record<string, unknown>;
@@ -42,26 +43,29 @@ export async function POST(request: Request) {
     voterId.length < 8 ||
     voterId.length > 64
   ) {
-    return NextResponse.json({ error: "Invalid bet." }, { status: 400 });
+    return NextResponse.json({ error: "Pari invalide." }, { status: 400 });
   }
 
   if (throttled(voterId)) {
-    return NextResponse.json({ error: "Slow down." }, { status: 429 });
+    return NextResponse.json({ error: "Doucement : un pari à la fois." }, { status: 429 });
   }
 
   try {
     const store = await getStore();
 
-    if (!(await store.isVotingOpen())) {
-      return NextResponse.json({ error: "Betting is closed." }, { status: 409 });
+    // L'heure du serveur fait foi : un téléphone à l'horloge décalée ne peut
+    // pas parier après la clôture.
+    const voting = await store.getVoting();
+    if (!isBettingOpen(voting.open, voting.closesAt, Date.now())) {
+      return NextResponse.json({ error: "Les paris sont clos." }, { status: 409 });
     }
 
     // Le client envoie la track ET le projet : on vérifie que les deux
-    // concordent, sinon un appel forgé pourrait fausser la répartition par
-    // track tout en pointant un projet valide.
+    // concordent, sinon un appel forgé pourrait compter un pari dans une
+    // track avec un projet d'une autre.
     if (!(await store.projectBelongsToTrack(projectId, trackId))) {
       return NextResponse.json(
-        { error: "This project is not in that track." },
+        { error: "Ce projet n'est pas dans cette track." },
         { status: 409 }
       );
     }
@@ -70,6 +74,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true });
   } catch {
-    return NextResponse.json({ error: "Bet not saved." }, { status: 503 });
+    return NextResponse.json({ error: "Pari non enregistré, réessaie." }, { status: 503 });
   }
 }
