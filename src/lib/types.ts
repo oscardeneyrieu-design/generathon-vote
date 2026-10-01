@@ -47,11 +47,18 @@ export type Bet = {
   voter_id: string;
   track_id: string;
   project_id: string;
+  /** Heure du dernier pari de cette personne dans cette track (ISO). */
+  updated_at: string;
+  /**
+   * Points à gagner, figés au moment du pari : popularité du projet à cet
+   * instant × bonus de rapidité. Voir `potentialPoints`.
+   */
+  points: number;
 };
 
 /**
  * Journal append-only : une ligne par pari posé ou modifié, jamais écrasée.
- * C'est la seule façon de reconstituer l'évolution des cotes — la table
+ * C'est la seule façon de reconstituer l'évolution des paris — la table
  * `bets` ne garde que l'état courant.
  */
 export type BetEvent = {
@@ -69,13 +76,15 @@ export type Standing = {
   name: string;
   team: string;
   brand: string | null;
+  /** Nombre de personnes qui ont parié sur ce projet. C'est lui qui fait le rang. */
   bets: number;
   /**
-   * Cote décimale, jamais inférieure à 1.00 : ce que rapporterait une mise
-   * de 1 sur ce projet. Voir `computeOdds` pour le lissage.
+   * Ce que rapporterait un pari sur ce projet posé maintenant, avant le bonus
+   * de rapidité (qui dépend de l'heure, donc appliqué à l'affichage). Mon
+   * propre pari n'y compte pas : je ne suis pas mon propre concurrent.
    */
-  odds: number;
-  /** Part des paris de SA track, 0–1. Sert uniquement à la barre de fond. */
+  gainBase: number;
+  /** Part des parieurs de SA track, 0–1. Sert uniquement à la barre de fond. */
   support: number;
   /** Rang partagé : deux projets à égalité portent le même numéro. */
   rank: number;
@@ -84,19 +93,19 @@ export type Standing = {
   isMine: boolean;
 };
 
-/** Un point de la courbe d'un projet : sa cote à un instant donné. */
+/** Un point de la courbe d'un projet : son nombre de paris à un instant donné. */
 export type SeriesPoint = {
-  /** Instant du changement de cote, en millisecondes depuis 1970. */
+  /** Instant du changement, en millisecondes depuis 1970. */
   time: number;
-  odds: number;
+  bets: number;
 };
 
 export type ProjectSeries = {
   projectId: string;
   name: string;
   points: SeriesPoint[];
-  /** Cote courante — sert à trier les courbes, la plus faible en premier. */
-  currentOdds: number;
+  /** Nombre de paris actuel — sert à trier les courbes, le plus soutenu en premier. */
+  currentBets: number;
   place: Place | null;
   isMine: boolean;
 };
@@ -110,6 +119,12 @@ export type TrackBoard = {
   podium: Standing[];
   /** Le projet sur lequel j'ai parié dans cette track, s'il y en a un. */
   myProjectId: string | null;
+  /** Les points que mon pari peut rapporter (figés au moment du pari), ou `null` sans pari. */
+  myPoints: number | null;
+  /** Vrai dès que le 1er de la track est annoncé : les gains sont alors connus. */
+  decided: boolean;
+  /** Ce que mon pari a rapporté, une fois la track décidée ; `null` avant ou sans pari. */
+  myWon: number | null;
 };
 
 export type Board = {
@@ -118,4 +133,10 @@ export type Board = {
   totalVoters: number;
   /** Nombre de tracks sur lesquelles j'ai parié. */
   myBetCount: number;
+  /** Mes points encore en jeu : paris des tracks pas encore décidées, comptés comme s'ils finissaient 1ers. */
+  myPointsAtStake: number;
+  /** Mes points gagnés dans les tracks décidées. */
+  myPointsWon: number;
+  /** Nombre de tracks dont le 1er est annoncé. */
+  decidedTracks: number;
 };

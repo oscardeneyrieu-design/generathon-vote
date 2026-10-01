@@ -1,6 +1,6 @@
 // Extension explicite : les tests tournent sous le type-stripping de Node,
 // qui n'a pas la résolution du bundler.
-import { computeOdds } from "./odds.ts";
+import { popularityPoints, wonPoints } from "./points.ts";
 import type { Bet, Board, Place, Project, Standing, Track, TrackBoard } from "./types.ts";
 
 /** La place d'un projet sur le podium de sa track, si elle est annoncée. */
@@ -17,6 +17,10 @@ export function placeOf(track: Track, projectId: string): Place | null {
  * Chaque personne peut parier dans chacune des tracks (un pari par track).
  * Les trois tracks ne se comparent pas : chacune a son podium et aucune
  * n'est « devant » une autre.
+ *
+ * Le rang suit le nombre de parieurs. Pour chaque projet, on calcule aussi
+ * ce que rapporterait un pari posé maintenant (`gainBase`), et pour moi ce
+ * que mes paris peuvent rapporter ou ont rapporté.
  */
 export function computeBoard(
   tracks: Track[],
@@ -26,14 +30,14 @@ export function computeBoard(
 ): Board {
   const perProject = new Map<string, number>();
   const perTrack = new Map<string, number>();
-  const mine = new Map<string, string>();
+  const mine = new Map<string, Bet>();
   const voters = new Set<string>();
 
   for (const bet of bets) {
     perProject.set(bet.project_id, (perProject.get(bet.project_id) ?? 0) + 1);
     perTrack.set(bet.track_id, (perTrack.get(bet.track_id) ?? 0) + 1);
     voters.add(bet.voter_id);
-    if (myVoterId && bet.voter_id === myVoterId) mine.set(bet.track_id, bet.project_id);
+    if (myVoterId && bet.voter_id === myVoterId) mine.set(bet.track_id, bet);
   }
 
   const boards: TrackBoard[] = [...tracks]
@@ -41,7 +45,11 @@ export function computeBoard(
     .map((track) => {
       const trackVoters = perTrack.get(track.id) ?? 0;
       const inTrack = projects.filter((project) => project.track_id === track.id);
-      const myProjectId = mine.get(track.id) ?? null;
+      const myBet = mine.get(track.id) ?? null;
+      const myProjectId = myBet?.project_id ?? null;
+      // Les gains se calculent sans mon propre pari : le reposer ailleurs ne
+      // doit pas me compter comme un concurrent.
+      const othersInTrack = trackVoters - (myBet ? 1 : 0);
 
       const sorted = [...inTrack].sort((a, b) => {
         const diff = (perProject.get(b.id) ?? 0) - (perProject.get(a.id) ?? 0);
@@ -60,6 +68,7 @@ export function computeBoard(
         const rank = count === previousBets ? previousRank : index + 1;
         previousBets = count;
         previousRank = rank;
+        const others = count - (myProjectId === project.id ? 1 : 0);
 
         return {
           projectId: project.id,
@@ -67,7 +76,7 @@ export function computeBoard(
           team: project.team,
           brand: project.brand,
           bets: count,
-          odds: computeOdds(count, trackVoters, inTrack.length),
+          gainBase: popularityPoints(others, othersInTrack, inTrack.length),
           support: trackVoters === 0 ? 0 : count / trackVoters,
           rank,
           place: placeOf(track, project.id),
@@ -81,8 +90,33 @@ export function computeBoard(
         .map((place) => standings.find((standing) => standing.place === place))
         .filter((standing): standing is Standing => standing !== undefined);
 
-      return { track, standings, voters: trackVoters, podium, myProjectId } satisfies TrackBoard;
+      const decided = track.first_project_id !== null;
+
+      return {
+        track,
+        standings,
+        voters: trackVoters,
+        podium,
+        myProjectId,
+        myPoints: myBet?.points ?? null,
+        decided,
+        myWon: decided && myBet ? wonPoints(myBet.points, placeOf(track, myBet.project_id)) : null,
+      } satisfies TrackBoard;
     });
 
-  return { tracks: boards, totalVoters: voters.size, myBetCount: mine.size };
+  let myPointsAtStake = 0;
+  let myPointsWon = 0;
+  for (const entry of boards) {
+    if (entry.decided) myPointsWon += entry.myWon ?? 0;
+    else myPointsAtStake += entry.myPoints ?? 0;
+  }
+
+  return {
+    tracks: boards,
+    totalVoters: voters.size,
+    myBetCount: mine.size,
+    myPointsAtStake,
+    myPointsWon,
+    decidedTracks: boards.filter((entry) => entry.decided).length,
+  };
 }

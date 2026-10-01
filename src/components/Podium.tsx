@@ -1,11 +1,21 @@
 import { placeLabel, plural } from "./Bits";
+import { formatPoints } from "@/lib/points";
 import type { Standing } from "@/lib/types";
 
 /**
  * Le podium annoncé d'une track. Il suit l'ordre officiel, pas l'ordre des
  * paris : un outsider peut gagner, et c'est précisément ce qu'on veut montrer.
  */
-export function Podium({ podium, large = false }: { podium: Standing[]; large?: boolean }) {
+export function Podium({
+  podium,
+  myWon = null,
+  large = false,
+}: {
+  podium: Standing[];
+  /** Ce que mon pari a rapporté dans cette track, affiché à côté de mon projet. */
+  myWon?: number | null;
+  large?: boolean;
+}) {
   if (podium.length === 0) return null;
 
   return (
@@ -15,7 +25,7 @@ export function Podium({ podium, large = false }: { podium: Standing[]; large?: 
         return (
           <li
             key={entry.projectId}
-            className={`flex flex-wrap items-center gap-3 rounded-xl border px-4 py-2.5 ${
+            className={`fade-in flex flex-wrap items-center gap-3 rounded-xl border px-4 py-2.5 ${
               first ? "border-gold bg-gold text-black" : "border-gold/40 bg-gold/10"
             }`}
           >
@@ -23,7 +33,11 @@ export function Podium({ podium, large = false }: { podium: Standing[]; large?: 
             <span className={`font-bold tracking-tight ${large && first ? "text-xl" : ""}`}>
               {entry.name}
             </span>
-            {entry.isMine && <span className="pill pill-mine">✓ Ton pari</span>}
+            {entry.isMine && (
+              <span className="pill pill-mine">
+                ✓ Ton pari{myWon !== null && ` · +${formatPoints(myWon)} pts`}
+              </span>
+            )}
             <span className={`ml-auto text-xs ${first ? "text-black/70" : "faint"}`}>
               {plural(entry.bets, "pari")}
             </span>

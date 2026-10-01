@@ -16,7 +16,8 @@ import { computeSeries } from "./history";
 import { getLiveSource } from "./live";
 import { computeBoard } from "./standings";
 import { getVoterId } from "./voter";
-import { isBettingOpen } from "./voting";
+import { potentialPoints } from "./points";
+import { betWeight, isBettingOpen, type VotingPeriod } from "./voting";
 import type { Bet, BetEvent, Board, Member, Project, ProjectSeries, Track } from "./types";
 
 /**
@@ -38,13 +39,15 @@ export type LiveState = {
   bettingOpen: boolean;
   /** Heure de clôture automatique (ISO), ou `null`. */
   closesAt: string | null;
+  /** Période de vote : de l'ouverture à la clôture, elle fixe la valeur des paris. */
+  period: VotingPeriod;
   /** Interrupteur brut de l'admin (utile à la console admin). */
   votingOpen: boolean;
   tracks: Track[];
   projects: Project[];
   members: Member[];
   board: Board;
-  /** Évolution des cotes par track, courbes triées cote la plus faible en tête. */
+  /** Évolution du nombre de paris par track, courbes triées du plus soutenu au moins soutenu. */
   series: Map<string, ProjectSeries[]>;
   voterId: string | null;
   pendingProjectId: string | null;
@@ -55,6 +58,7 @@ export type LiveState = {
 function useLiveState(): LiveState {
   const [votingOpen, setVotingOpen] = useState(false);
   const [closesAt, setClosesAt] = useState<string | null>(null);
+  const [opensAt, setOpensAt] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [tracks, setTracks] = useState<Track[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -86,6 +90,7 @@ function useLiveState(): LiveState {
 
       setVotingOpen(snapshot.votingOpen);
       setClosesAt(snapshot.closesAt);
+      setOpensAt(snapshot.opensAt);
       setNow(Date.now());
       setTracks(snapshot.tracks);
       setProjects(snapshot.projects);
@@ -173,14 +178,36 @@ function useLiveState(): LiveState {
         setNow(Date.now());
         return;
       }
+      // Gagnant annoncé : le serveur refuserait, inutile d'afficher un faux pari.
+      if (tracks.find((track) => track.id === trackId)?.first_project_id) return;
+
+      // Re-taper son pari ne change rien (le serveur fait de même) : sinon on
+      // perdrait des points à chaque tap, le bonus de rapidité ayant baissé.
+      if (bets.some((bet) => bet.voter_id === voterId && bet.track_id === trackId && bet.project_id === projectId)) {
+        return;
+      }
 
       setPendingProjectId(projectId);
 
       // Bascule immédiate : le retour doit précéder la latence réseau, la
-      // source de vérité reprend la main au prochain refresh.
+      // source de vérité reprend la main au prochain refresh. Les points
+      // affichés sont ceux que le serveur va figer, calculés de la même façon.
+      const others = bets.filter((bet) => bet.track_id === trackId && bet.voter_id !== voterId);
+      const optimisticPoints = potentialPoints(
+        others.filter((bet) => bet.project_id === projectId).length,
+        others.length,
+        projects.filter((project) => project.track_id === trackId).length,
+        betWeight(Date.now(), { opensAt, closesAt })
+      );
       setBets((current) => [
         ...current.filter((bet) => !(bet.voter_id === voterId && bet.track_id === trackId)),
-        { voter_id: voterId, track_id: trackId, project_id: projectId },
+        {
+          voter_id: voterId,
+          track_id: trackId,
+          project_id: projectId,
+          updated_at: new Date().toISOString(),
+          points: optimisticPoints,
+        },
       ]);
 
       try {
@@ -203,13 +230,12 @@ function useLiveState(): LiveState {
         if (aliveRef.current) setPendingProjectId(null);
       }
     },
-    [closesAt, refresh, voterId, votingOpen]
+    [bets, closesAt, opensAt, projects, refresh, tracks, voterId, votingOpen]
   );
 
-  const board = useMemo(
-    () => computeBoard(tracks, projects, bets, voterId),
-    [bets, projects, tracks, voterId]
-  );
+  const period = useMemo<VotingPeriod>(() => ({ opensAt, closesAt }), [closesAt, opensAt]);
+
+  const board = useMemo(() => computeBoard(tracks, projects, bets, voterId), [bets, projects, tracks, voterId]);
 
   // Le rejeu du journal est plus coûteux que le reste : on ne le refait que
   // quand le journal change réellement, pas à chaque rendu.
@@ -223,6 +249,7 @@ function useLiveState(): LiveState {
     error,
     bettingOpen,
     closesAt,
+    period,
     votingOpen,
     tracks,
     projects,

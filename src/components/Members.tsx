@@ -36,18 +36,23 @@ export function Avatar({ member, size = 28 }: { member: Pick<Member, "name" | "p
   );
 }
 
-/** Les personnes d'un projet : photo + nom, qui passent à la ligne si besoin. */
-export function MemberList({ members }: { members: Member[] }) {
+/**
+ * Version compacte, pour les cartes de la grille : photos qui se chevauchent,
+ * puis les prénoms sur une ou deux lignes.
+ */
+export function MemberStack({ members }: { members: Member[] }) {
   if (members.length === 0) return null;
 
   return (
-    <ul className="flex flex-wrap gap-x-3 gap-y-1.5">
-      {members.map((member) => (
-        <li key={member.id} className="flex items-center gap-1.5">
-          <Avatar member={member} />
-          <span className="text-sm">{member.name}</span>
-        </li>
-      ))}
-    </ul>
+    <span className="flex flex-col gap-1.5">
+      <span className="flex -space-x-2" aria-hidden="true">
+        {members.slice(0, 5).map((member) => (
+          <Avatar key={member.id} member={member} size={30} />
+        ))}
+      </span>
+      <span className="line-clamp-2 text-xs text-black/60 dark:text-white/60">
+        {members.map((member) => member.name).join(", ")}
+      </span>
+    </span>
   );
 }

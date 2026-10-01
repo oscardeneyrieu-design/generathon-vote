@@ -18,11 +18,13 @@ Le doré signifie « toi » ou « décidé » : ton pari, l'onglet que tu regard
 
 ## Typographie
 
-**Geist** (police du site), chiffres en `tabular-nums` pour que les cotes ne fassent pas bouger la mise en page. Le logo `GeNerAThoN` est en serif Georgia gras avec un léger décalage rouge/cyan, copié du site.
+**Geist** (police du site), chiffres en `tabular-nums` pour que les points ne fassent pas bouger la mise en page. Le logo `GeNerAThoN` est en serif Georgia gras avec un léger décalage rouge/cyan, copié du site.
 
 - Titre de page : `text-3xl font-extrabold tracking-tight`
 - Titre de section : petites capitales espacées grises (`.section-title`), comme « LES ÉDITIONS »
-- Cote : gras, `text-2xl` dans les cartes
+- Points à gagner : gras, `text-2xl` dans les cartes
+- Teinte des cartes de projet : de `--heat-low` (gris, favori) à `--heat-high` (jaune, outsider), mélangées en `oklab` selon les points à gagner (échelle log). Une légende au-dessus de la grille, et le chiffre toujours écrit : la couleur ne porte jamais l'information seule.
+- Animations : courtes et liées à un changement d'état (arrivée de page, track ouverte, cartes en cascade, pari confirmé, chiffre qui change, lignes du classement qui glissent à leur nouveau rang). Toutes coupées sous `prefers-reduced-motion`.
 
 ## Composants
 
@@ -30,8 +32,10 @@ Tout est dans `src/app/globals.css` (bloc `@layer components`) et `src/component
 
 - `SiteChrome` — en-tête collant flouté avec les onglets **Parier** / **Classement** et le bouton doré **Admin** ; pied de page.
 - `TrackTabs` — les trois tracks en boutons, l'active en aplat doré (modèle : boutons « Vous êtes » du site).
-- `ProjectGrid` — cartes projet arrondies, bordure dorée au survol, cadre doré sur ton pari.
-- `Leaderboard` — tableau rang / projet / paris / cote, barre dorée pâle en fond de ligne.
-- `Podium`, `OddsChart`, `JoinCode` (QR code), `ConfirmButton` (confirmation en deux clics).
+- `MyGame` — carte « Ton jeu » en haut de la page Parier : points en jeu et gagnés, paris posés, une ligne par track qui ouvre ses projets, bouton « Revoir les règles ».
+- `ProjectGrid` — cartes projet arrondies (4 par ligne sur ordinateur, 2 sur téléphone), teintées du gris au jaune ; premier tap = sélection dorée avec « Touche encore pour confirmer », second tap = pari, cadre bleu.
+- `RulesIntro` — les règles en plein écran noir à la première visite, cinq écrans illustrés.
+- `Leaderboard` — tableau rang / projet / paris / à gagner, barre dorée pâle en fond de ligne.
+- `Podium`, `BetsChart` (évolution des paris), `JoinCode` (QR code), `ConfirmButton` (confirmation en deux clics).
 
 Chargement : blocs gris qui pulsent, jamais une valeur par défaut. Mouvements courts et désactivés sous `prefers-reduced-motion`.

@@ -6,7 +6,7 @@ import { dirname, resolve } from "node:path";
 
 import { SEED_TRACKS } from "@/lib/tracks";
 import type { Bet, BetEvent, Member, Project, Track } from "@/lib/types";
-import type { Podium, ProjectInput, Snapshot, Store, Voting } from "./types";
+import type { BetContext, Podium, ProjectInput, Snapshot, Store, Voting } from "./types";
 
 const DEFAULT_PATH = ".data/votes.db";
 
@@ -22,6 +22,7 @@ create table if not exists bets (
   project_id  text not null references projects(id) on delete cascade,
   created_at  text not null,
   updated_at  text not null,
+  points      integer not null default 0,
   unique (voter_id, track_id)
 );`;
 
@@ -82,7 +83,8 @@ create table if not exists bet_events (
 create table if not exists settings (
   id           integer primary key check (id = 1),
   voting_open  integer not null default 0,
-  closes_at    text
+  closes_at    text,
+  opens_at     text
 );
 
 create index if not exists projects_track_idx on projects (track_id, position);
@@ -101,8 +103,21 @@ type Handle = {
 // perdrait les abonnés SSE déjà connectés.
 const globalRef = globalThis as typeof globalThis & { __voteSqlite?: Handle };
 
+/**
+ * Vrai une fois la base mise à niveau par CE module. Il est rechargé à chaud
+ * avec le code, pas la connexion en cache : une nouvelle colonne s'ajoute
+ * ainsi sans redémarrer le serveur.
+ */
+let migrated = false;
+
 function handle(): Handle {
-  if (globalRef.__voteSqlite) return globalRef.__voteSqlite;
+  if (globalRef.__voteSqlite) {
+    if (!migrated) {
+      migrate(globalRef.__voteSqlite.db);
+      migrated = true;
+    }
+    return globalRef.__voteSqlite;
+  }
 
   const file = resolve(process.cwd(), process.env.SQLITE_PATH ?? DEFAULT_PATH);
   mkdirSync(dirname(file), { recursive: true });
@@ -110,6 +125,7 @@ function handle(): Handle {
   const db = new DatabaseSync(file);
   db.exec(SCHEMA);
   migrate(db);
+  migrated = true;
 
   const created: Handle = { db, listeners: new Set() };
   globalRef.__voteSqlite = created;
@@ -137,10 +153,10 @@ function migrate(db: DatabaseSync) {
     db.exec("alter table tracks drop column winner_project_id");
   }
 
-  // Clôture programmée.
-  if (!columnsOf(db, "settings").has("closes_at")) {
-    db.exec("alter table settings add column closes_at text");
-  }
+  // Clôture programmée, puis heure d'ouverture (valeur des paris dans le temps).
+  const settingsColumns = columnsOf(db, "settings");
+  if (!settingsColumns.has("closes_at")) db.exec("alter table settings add column closes_at text");
+  if (!settingsColumns.has("opens_at")) db.exec("alter table settings add column opens_at text");
 
   // Un pari par track (ancienne version : un seul pari au total, `voter_id
   // unique`). SQLite ne sait pas retirer une contrainte : on recrée la table.
@@ -153,7 +169,8 @@ function migrate(db: DatabaseSync) {
     try {
       db.exec("alter table bets rename to bets_old");
       db.exec(BETS_TABLE);
-      db.exec("insert into bets select id, voter_id, track_id, project_id, created_at, updated_at from bets_old");
+      db.exec(`insert into bets (id, voter_id, track_id, project_id, created_at, updated_at)
+               select id, voter_id, track_id, project_id, created_at, updated_at from bets_old`);
       db.exec("drop table bets_old");
       db.exec("create index if not exists bets_track_idx on bets (track_id)");
       db.exec("commit");
@@ -161,6 +178,11 @@ function migrate(db: DatabaseSync) {
       db.exec("rollback");
       throw cause;
     }
+  }
+
+  // Points figés au moment du pari. Les paris d'avant restent à 0.
+  if (!columnsOf(db, "bets").has("points")) {
+    db.exec("alter table bets add column points integer not null default 0");
   }
 
   // Paris posés avant l'existence du journal : sans ligne au journal, la
@@ -220,10 +242,14 @@ export function createSqliteStore(): Store {
   };
 
   const readVoting = (): Voting => {
-    const row = db.prepare("select voting_open, closes_at from settings where id = 1").get() as
-      | { voting_open: number; closes_at: string | null }
+    const row = db.prepare("select voting_open, closes_at, opens_at from settings where id = 1").get() as
+      | { voting_open: number; closes_at: string | null; opens_at: string | null }
       | undefined;
-    return { open: (row?.voting_open ?? 0) === 1, closesAt: row?.closes_at ?? null };
+    return {
+      open: (row?.voting_open ?? 0) === 1,
+      closesAt: row?.closes_at ?? null,
+      opensAt: row?.opens_at ?? null,
+    };
   };
 
   const insertMember = db.prepare(
@@ -253,7 +279,7 @@ export function createSqliteStore(): Store {
         .all() as unknown as Member[];
 
       const bets = db
-        .prepare("select voter_id, track_id, project_id from bets")
+        .prepare("select voter_id, track_id, project_id, updated_at, points from bets")
         .all() as unknown as Bet[];
 
       const events = db
@@ -266,6 +292,7 @@ export function createSqliteStore(): Store {
       return {
         votingOpen: voting.open,
         closesAt: voting.closesAt,
+        opensAt: voting.opensAt,
         tracks,
         projects,
         members,
@@ -278,11 +305,11 @@ export function createSqliteStore(): Store {
       return readVoting();
     },
 
-    async setVoting({ open, closesAt }) {
+    async setVoting({ open, closesAt, opensAt }) {
       write(() =>
         db
-          .prepare("update settings set voting_open = ?, closes_at = ? where id = 1")
-          .run(open ? 1 : 0, closesAt)
+          .prepare("update settings set voting_open = ?, closes_at = ?, opens_at = ? where id = 1")
+          .run(open ? 1 : 0, closesAt, opensAt)
       );
     },
 
@@ -293,16 +320,37 @@ export function createSqliteStore(): Store {
       );
     },
 
-    async placeBet(voterId, trackId, projectId) {
+    async betContext(voterId, trackId, projectId): Promise<BetContext> {
+      const current = db
+        .prepare("select project_id, points from bets where voter_id = ? and track_id = ?")
+        .get(voterId, trackId) as { project_id: string; points: number } | undefined;
+      const count = (sql: string, ...params: string[]) =>
+        (db.prepare(sql).get(...params) as { n: number }).n;
+
+      return {
+        current: current ? { projectId: current.project_id, points: current.points } : null,
+        trackBettors: count("select count(*) as n from bets where track_id = ? and voter_id <> ?", trackId, voterId),
+        projectBettors: count(
+          "select count(*) as n from bets where project_id = ? and voter_id <> ?",
+          projectId,
+          voterId
+        ),
+        projectCount: count("select count(*) as n from projects where track_id = ?", trackId),
+        decided: count("select count(*) as n from tracks where id = ? and first_project_id is not null", trackId) > 0,
+      };
+    },
+
+    async placeBet(voterId, trackId, projectId, points) {
       const now = new Date().toISOString();
       write(() => {
         db.prepare(
-          `insert into bets (id, voter_id, track_id, project_id, created_at, updated_at)
-           values (?, ?, ?, ?, ?, ?)
+          `insert into bets (id, voter_id, track_id, project_id, created_at, updated_at, points)
+           values (?, ?, ?, ?, ?, ?, ?)
            on conflict (voter_id, track_id) do update set
              project_id = excluded.project_id,
-             updated_at = excluded.updated_at`
-        ).run(crypto.randomUUID(), voterId, trackId, projectId, now, now);
+             updated_at = excluded.updated_at,
+             points = excluded.points`
+        ).run(crypto.randomUUID(), voterId, trackId, projectId, now, now, points);
 
         db.prepare(
           "insert into bet_events (track_id, project_id, voter_id, created_at) values (?, ?, ?, ?)"

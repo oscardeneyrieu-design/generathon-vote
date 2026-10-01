@@ -4,18 +4,22 @@ Le public parie sur le projet qui va gagner chaque track. Classements en direct,
 
 ## Le parcours
 
-1. **Une track** — *Three Minutes to Move*, *Animate the Shift* ou *Sell the Feeling*.
-2. **Un projet** dans cette track : chaque carte montre les personnes de l'équipe, avec leur photo.
+1. **Une track** — *Three Minutes to Move*, *Animate the Shift* ou *Sell the Feeling*, choisie dans la carte **Ton jeu** : chaque ligne est une track, la toucher affiche ses projets juste en dessous.
+2. **Un projet** dans cette track : chaque carte montre les personnes de l'équipe, avec leur photo. Un premier tap sélectionne la carte (« Touche encore pour confirmer »), un second sur la même carte pose le pari ; sans second tap, la sélection retombe au bout de 8 secondes. Les cartes sont quatre par ligne sur ordinateur, deux sur téléphone, et leur teinte va du gris (favori, peu de points à gagner) au jaune (outsider, beaucoup de points).
 3. On recommence dans les autres tracks : **un pari par track**, donc jusqu'à trois paris par personne.
-4. Les cotes bougent en direct, sur le téléphone comme sur l'écran projeté. Tes paris ressortent en bleu partout.
+4. Chaque carte affiche les points qu'un pari rapporterait maintenant. Au moment du pari, ces points se figent : c'est ce que tu gagneras si le projet finit 1er. Tes paris ressortent en bleu partout.
 
 Un pari par appareil et par track, modifiable à volonté tant que les paris sont ouverts.
+
+À la première visite, la page Parier s'ouvre sur les règles en plein écran noir : cinq écrans illustrés (les tracks, les deux taps pour parier, la popularité, le bonus de rapidité, ce qu'on gagne), « Suivant » pour avancer, « OK, je parie » pour finir. L'appareil s'en souvient (`localStorage`) ; le lien « Revoir les règles » les rouvre. Le tout est dans [`src/components/RulesIntro.tsx`](src/components/RulesIntro.tsx).
+
+La page Parier ne montre que de quoi parier. En haut, la carte **Ton jeu** : tes points en jeu (puis gagnés), tes paris posés, ton pari dans chaque track (un tap ouvre la track) et le bouton **Revoir les règles**. Puis les tracks et les cartes des projets. Le temps restant et le bonus de rapidité sont détaillés en bas de page, le compte à rebours restant toujours visible dans la barre du haut. Le classement en direct, l'évolution des paris et le podium sont dans l'onglet **Classement**.
 
 ## L'horloge
 
 Dans `/admin`, choisis le jour et l'heure de fin (par défaut le prochain dimanche à 14 h), puis **Lancer le compte à rebours**. Les paris s'ouvrent, le compte à rebours défile sur les téléphones, sur le grand écran et dans l'admin, et à l'heure dite tout se ferme seul : les écrans basculent d'eux-mêmes et le serveur refuse tout pari arrivé après (c'est l'heure du serveur qui fait foi, pas celle du téléphone). On peut changer l'heure, fermer plus tôt, ou ouvrir sans heure de fin.
 
-Le temps restant reste toujours visible dans la barre de menu (sous la barre sur téléphone). Les courbes d'évolution des cotes ont le temps en abscisse : du premier pari jusqu'à maintenant (ou jusqu'à la clôture), en escalier puisqu'une cote ne change qu'au moment d'un pari.
+Le temps restant reste toujours visible dans la barre de menu (sous la barre sur téléphone), avec le bonus de rapidité du moment (voir plus bas). Les courbes d'évolution des paris ont le temps en abscisse : du premier pari jusqu'à maintenant (ou jusqu'à la clôture), en escalier puisqu'un compte ne change qu'au moment d'un pari.
 
 Dans `/admin`, trois onglets au milieu de la page choisissent la track à éditer : une seule est affichée à la fois.
 
@@ -25,25 +29,33 @@ Le bouton **Admin** mène à `/admin`, protégé par un code : la valeur de `ADM
 
 **Chaque track a son gagnant. Il n'y a pas de vainqueur au-dessus des trois** : elles ne sont jamais comparées entre elles, et aucun écran n'affiche de part d'une track dans le total.
 
-## Les cotes
+## Les points
 
-Cote décimale pari-mutuel : ce que rapporterait une mise de 1 sur un projet s'il gagne. Moins un projet est soutenu, plus sa cote est longue.
+Chaque pari fige, au moment où il est posé, les points qu'il rapportera. Deux choses les fixent.
 
-La formule brute d'un pool serait `total de la track ÷ paris sur le projet`. À l'échelle d'une soirée — de l'ordre de 70 parieurs sur trois tracks — elle casse : un projet sans pari donne une cote infinie, et une track à trois parieurs voit ses cotes tripler à chaque clic. On ajoute donc un pari virtuel sur chaque projet (lissage de Laplace) :
+**La popularité du projet à cet instant.** Moins de monde a parié dessus, plus il rapporte :
 
 ```
-cote = (total de la track + nombre de projets) / (paris sur le projet + 1)
+points = 100 × (parieurs de la track + nombre de projets) / (parieurs du projet + 1)
 ```
 
-Conséquences voulues : la cote est toujours finie, jamais inférieure à 1.00, identique pour tous les projets tant que personne n'a parié — ce qui est exactement ce qu'on sait d'eux — et elle bouge d'autant plus doucement que la track est peu fournie. En dessous de 8 parieurs sur une track, l'interface prévient que les cotes vont encore beaucoup bouger.
+Les comptes n'incluent pas le parieur lui-même. Le « + nombre de projets » et le « + 1 » ajoutent un pari virtuel par projet (lissage de Laplace) : sans eux, un projet sans pari rapporterait l'infini, et une track à trois parieurs verrait ses gains tripler à chaque clic. Tant que personne n'a parié, tous les projets rapportent pareil. Exemple avec 12 projets et 40 parieurs : un favori à 9 paris rapporte 520 points, un outsider à 1 pari en rapporte 2 600.
 
-Tout est dans [`src/lib/odds.ts`](src/lib/odds.ts).
+**Le bonus de rapidité.** Avec une heure de fin, ces points sont multipliés par un bonus qui baisse en ligne droite : 100 % pour un pari posé à l'ouverture des paris, 20 % à la dernière seconde. Ça pousse à aller voir les équipes tôt. Sans heure de fin, pas de bonus (100 %). Déplacer l'heure de fin ne touche pas aux points déjà figés.
+
+Changer d'avis, c'est reparier : les points sont recalculés à cet instant, avec la popularité et le bonus du moment. Re-taper son propre projet ne change rien.
+
+**Ce qu'on gagne**, une fois le 1er de la track annoncé : tous ses points si le projet finit 1er, la moitié s'il est 2e, un quart s'il est 3e, rien sinon. Le score est personnel et anonyme : chacun voit sur son téléphone ses points en jeu, puis ses points gagnés.
+
+Les points sont calculés par le serveur (le téléphone affiche la même valeur tout de suite, puis le serveur la confirme). Le classement des projets, lui, suit simplement le nombre de parieurs.
+
+Tout est dans [`src/lib/points.ts`](src/lib/points.ts) et [`src/lib/voting.ts`](src/lib/voting.ts) pour le bonus.
 
 ## Les trois écrans
 
 | Route | Pour qui | Quoi |
 |---|---|---|
-| `/` (onglet **Parier**) | le public | Choix de la track, cartes des projets, classement en direct, courbe des cotes |
+| `/` (onglet **Parier**) | le public | Règles à la première visite, choix de la track, cartes des projets avec les points à gagner, tes points |
 | `/board` (onglet **Classement**) | le public et le vidéoprojecteur | Les trois tracks en colonnes, top 5 chacune, QR code pour rejoindre |
 | `/admin` (bouton **Admin**) | l'organisateur | Ouvrir/fermer les paris, saisir les projets, annoncer le podium |
 
@@ -155,7 +167,8 @@ Le cookie admin est un HMAC dont la clé est `ADMIN_CODE` : il n'est pas forgeab
 | Quoi | Où |
 |---|---|
 | Couleurs (doré, fonds) et composants | `src/app/globals.css` → blocs `@theme` et `@layer components` |
-| Formule des cotes, plafond, seuil « peu de paris » | `src/lib/odds.ts` |
+| Formule des points, part du 2e et du 3e, seuil « peu de paris » | `src/lib/points.ts` |
+| Bonus de rapidité (plancher à 20 %) | `src/lib/voting.ts` → `MIN_WEIGHT` |
 | Noms et challenges des tracks | `/admin`, ou `src/lib/tracks.ts` pour le seed |
 | Fréquence de recalcul des classements (400 ms) | `src/lib/use-live.ts` → `THROTTLE_MS` |
 | Filet de sécurité si le canal meurt (15 s) | `src/lib/use-live.ts` → `SAFETY_POLL_MS` |

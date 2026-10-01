@@ -21,7 +21,7 @@ export function createSupabaseSource(): LiveSource {
       const supabase = getBrowserClient();
 
       const [settingsRes, tracksRes, projectsRes, membersRes, betsRes, eventsRes] = await Promise.all([
-        supabase.from("settings").select("voting_open, closes_at").eq("id", 1).maybeSingle(),
+        supabase.from("settings").select("voting_open, closes_at, opens_at").eq("id", 1).maybeSingle(),
         supabase
           .from("tracks")
           .select(
@@ -38,7 +38,7 @@ export function createSupabaseSource(): LiveSource {
           .select("id, project_id, name, photo_url, position")
           .order("position")
           .order("name"),
-        supabase.from("bets").select("voter_id, track_id, project_id"),
+        supabase.from("bets").select("voter_id, track_id, project_id, updated_at, points"),
         supabase
           .from("bet_events")
           .select("seq, track_id, project_id, voter_id, created_at")
@@ -50,11 +50,14 @@ export function createSupabaseSource(): LiveSource {
         if (result.error) throw new Error(result.error.message);
       }
 
-      const settings = settingsRes.data as { voting_open: boolean; closes_at: string | null } | null;
+      const settings = settingsRes.data as
+        | { voting_open: boolean; closes_at: string | null; opens_at: string | null }
+        | null;
 
       return {
         votingOpen: settings?.voting_open ?? false,
         closesAt: settings?.closes_at ?? null,
+        opensAt: settings?.opens_at ?? null,
         tracks: (tracksRes.data as Track[]) ?? [],
         projects: (projectsRes.data as Project[]) ?? [],
         members: (membersRes.data as Member[]) ?? [],

@@ -91,6 +91,7 @@ console.log(`  INFO  backend : ${(await probeStream()) === 204 ? "supabase" : "s
 
 const wasOpen = first.body.votingOpen;
 const wasClosesAt = first.body.closesAt ?? null;
+const wasOpensAt = first.body.opensAt ?? null;
 console.log(`  INFO  vote actuellement : ${wasOpen ? "ouvert" : "fermé"}${wasClosesAt ? ` jusqu'à ${wasClosesAt}` : ""}`);
 
 const tracks = first.body.tracks ?? [];
@@ -168,6 +169,11 @@ const placeBet = (trackId, projectId, voterId) =>
 
 const betA = await placeBet(trackA.id, smoke.id, "smoke-voter-aaaa");
 check("un pari est accepté", betA.status === 200, `HTTP ${betA.status}`);
+check(
+  "le pari renvoie ses points, figés par le serveur",
+  Number.isInteger(betA.body?.points) && betA.body.points > 0,
+  `${betA.body?.points} pts`
+);
 
 await placeBet(trackA.id, smoke.id, "smoke-voter-bbbb");
 let state = (await call("/api/state")).body;
@@ -183,10 +189,15 @@ check(
 );
 
 await new Promise((r) => setTimeout(r, 300));
-await placeBet(trackA.id, smoke.id, "smoke-voter-aaaa");
+const again = await placeBet(trackA.id, smoke.id, "smoke-voter-aaaa");
 state = (await call("/api/state")).body;
 smokeBets = state.bets.filter((b) => b.project_id === smoke.id);
 check("re-parier ne crée pas un second pari", smokeBets.length === 2, `${smokeBets.length}`);
+check(
+  "re-taper son projet garde les mêmes points",
+  again.body?.points === betA.body?.points,
+  `${betA.body?.points} → ${again.body?.points}`
+);
 
 // Un même parieur peut désigner un gagnant dans une AUTRE track.
 await new Promise((r) => setTimeout(r, 300));
@@ -228,7 +239,9 @@ check(
 );
 check(
   "l'état d'ouverture du vote est restauré",
-  final.votingOpen === wasOpen && (final.closesAt ?? null) === wasClosesAt,
+  final.votingOpen === wasOpen &&
+    (final.closesAt ?? null) === wasClosesAt &&
+    (final.opensAt ?? null) === wasOpensAt,
   final.votingOpen ? "ouvert" : "fermé"
 );
 if (photo.body.url) {
@@ -241,9 +254,11 @@ async function cleanup(projectIds) {
     // Supprimer le projet efface ses membres et ses paris par cascade.
     await call(`/api/admin/projects?id=${encodeURIComponent(projectId)}`, { method: "DELETE" });
   }
-  // Une heure de fin passée entre-temps ne peut pas être reposée telle quelle.
-  const closesAt = wasClosesAt && Date.parse(wasClosesAt) > Date.now() ? wasClosesAt : null;
-  await call("/api/admin/voting", send({ open: wasOpen, closesAt }, "PATCH"));
+  // Rouvrir n'accepte qu'une heure de fin à venir ; fermé, elle se repose telle quelle.
+  // L'heure d'ouverture aussi : la valeur des paris déjà posés en dépend.
+  const closesAt =
+    !wasOpen || (wasClosesAt && Date.parse(wasClosesAt) > Date.now()) ? wasClosesAt : null;
+  await call("/api/admin/voting", send({ open: wasOpen, closesAt, opensAt: wasOpensAt }, "PATCH"));
 }
 
 console.log(

@@ -34,11 +34,11 @@ Pas l'esthétique sondage-en-ligne générique (Google Forms, Slido) : l'identit
 
 ## Design Principles
 
-Le chiffre est le sujet. Les cotes sont le contenu principal de chaque écran, pas une annotation dans un coin : elles dictent la hiérarchie typographique, pas l'inverse. Et une cote doit rester lisible à soixante-dix parieurs comme à trois — jamais infinie, jamais sous 1.00, jamais en train de tripler à chaque clic.
+Le chiffre est le sujet. Les points à gagner sont le contenu principal de chaque écran, pas une annotation dans un coin : ils dictent la hiérarchie typographique, pas l'inverse. Et ils doivent rester lisibles à soixante-dix parieurs comme à trois — jamais infinis, jamais en train de tripler à chaque clic. Un pari fige ses points au moment où il est posé : ce que tu vois en tapant est ce que tu gagneras.
 
 Trois courses, pas un championnat. Chaque track a son gagnant et les trois ne se comparent jamais : aucun écran n'affiche la part d'une track dans le total, ni quoi que ce soit qui suggère un vainqueur au-dessus des trois.
 
-Deux taps, pas un formulaire. Parier ne passe par aucune étape inutile : pas de bouton « valider », pas de confirmation, pas de pseudo à saisir. Le tap est le pari, et le re-tap est le changement d'avis.
+Deux taps, pas un formulaire. Parier ne passe par aucune étape inutile : pas de bouton « valider » à chercher, pas de pseudo à saisir. Le premier tap sélectionne la carte et affiche « Touche encore pour confirmer » ; le second, sur la même carte, pose le pari. Les points se figeant au pari, un tap de travers ne doit pas les coûter. Changer d'avis, c'est refaire ces deux taps sur un autre projet.
 
 Une track, assumée. Le choix de track est structurant, pas un filtre : il occupe la pleine largeur, porte le nom complet du challenge, et l'interface dit explicitement ce qu'il advient du pari en cours quand on en change.
 

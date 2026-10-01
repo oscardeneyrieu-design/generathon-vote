@@ -15,7 +15,7 @@ const geist = Geist({
 
 export const metadata: Metadata = {
   title: "Pronostics — Generathon",
-  description: "Parie sur le projet qui va gagner chaque track. Cotes en direct.",
+  description: "Parie sur le projet qui va gagner chaque track et gagne des points.",
   // Page éphémère partagée par QR code : elle ne doit pas concurrencer le
   // site de l'événement dans les moteurs de recherche.
   robots: { index: false, follow: false },

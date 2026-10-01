@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 
-import { formatOdds } from "@/lib/odds";
+import { plural } from "./Bits";
 import type { ProjectSeries } from "@/lib/types";
 
 type Props = {
@@ -29,17 +29,16 @@ const PAD_BOTTOM = 26;
 const PAD_LEFT = 38;
 
 /**
- * Évolution des cotes, une courbe par projet.
+ * Évolution du nombre de paris, une courbe par projet.
  *
- * - Axe vertical inversé et logarithmique : une cote qui baisse est une bonne
- *   nouvelle, donc « monter » veut dire « mieux placé » ; et en linéaire les
- *   favoris s'écraseraient sur une bande.
+ * - Axe vertical linéaire, de zéro au projet le plus soutenu : « monter »
+ *   veut dire « plus de monde y croit ».
  * - Axe horizontal en temps, du premier pari à maintenant. La courbe est en
- *   escalier : une cote ne change qu'au moment d'un pari, et reste stable
+ *   escalier : un compte ne change qu'au moment d'un pari, et reste stable
  *   entre deux.
  * - Étiquettes en bout de courbe plutôt qu'une légende.
  */
-export function OddsChart({ series, limit = 5, width: WIDTH = 640, height = 200, closesAt }: Props) {
+export function BetsChart({ series, limit = 5, width: WIDTH = 640, height = 200, closesAt }: Props) {
   const clipId = useId();
   const drawn = series.slice(0, limit).filter((entry) => entry.points.length > 0);
   const frame = { aspectRatio: `${WIDTH} / ${height}` };
@@ -62,24 +61,19 @@ export function OddsChart({ series, limit = 5, width: WIDTH = 640, height = 200,
   const end = Math.max(lastEvent, Number.isNaN(deadline) ? Date.now() : Math.min(Date.now(), deadline));
   const span = Math.max(end - start, 60_000);
 
-  const allOdds = drawn.flatMap((entry) => entry.points.map((point) => point.odds));
-  const minOdds = Math.max(1, Math.min(...allOdds));
-  const maxOdds = Math.max(minOdds * 1.6, ...allOdds);
-  const logMin = Math.log(minOdds);
-  const logSpan = Math.log(maxOdds) - logMin || 1;
+  // Un peu de marge au-dessus du premier : la courbe de tête ne colle pas au cadre.
+  const maxBets = Math.max(2, Math.ceil(Math.max(...drawn.map((entry) => entry.currentBets)) * 1.1));
 
   const x = (time: number) => PAD_LEFT + ((time - start) / span) * plotWidth;
 
   /** Escalier : horizontal jusqu'au pari suivant, puis saut vertical. */
   const stepPath = (entry: ProjectSeries) => {
     const [first, ...rest] = entry.points;
-    let d = `M${x(first.time)},${y(first.odds)}`;
-    for (const point of rest) d += ` H${x(point.time)} V${y(point.odds)}`;
+    let d = `M${x(first.time)},${y(first.bets)}`;
+    for (const point of rest) d += ` H${x(point.time)} V${y(point.bets)}`;
     return `${d} H${x(start + span)}`;
   };
-  // Inversion : cote faible en haut.
-  const y = (odds: number) =>
-    PAD_TOP + ((Math.log(Math.max(odds, minOdds)) - logMin) / logSpan) * plotHeight;
+  const y = (bets: number) => PAD_TOP + (1 - bets / maxBets) * plotHeight;
 
   return (
     <figure className="m-0" style={frame}>
@@ -88,10 +82,10 @@ export function OddsChart({ series, limit = 5, width: WIDTH = 640, height = 200,
         width="100%"
         height="100%"
         role="img"
-        aria-label={`Évolution des cotes. Favoris : ${drawn
+        aria-label={`Évolution des paris. En tête : ${drawn
           .slice(0, 3)
-          .map((entry) => `${entry.name} à ${formatOdds(entry.currentOdds)}`)
-          .join(", ")}.`}
+          .map((entry) => `${entry.name}, ${plural(entry.currentBets, "pari")}`)
+          .join(" ; ")}.`}
         className="block overflow-visible"
         fontSize={10}
         fontWeight={600}
@@ -102,8 +96,8 @@ export function OddsChart({ series, limit = 5, width: WIDTH = 640, height = 200,
           </clipPath>
         </defs>
 
-        {/* Pas de graduation collée au libellé « COTE », qui la chevaucherait. */}
-        {oddsTicks(minOdds, maxOdds)
+        {/* Pas de graduation collée au libellé « PARIS », qui la chevaucherait. */}
+        {betTicks(maxBets)
           .filter((tick) => y(tick) > PAD_TOP + 8)
           .map((tick) => (
           <g key={tick}>
@@ -117,7 +111,7 @@ export function OddsChart({ series, limit = 5, width: WIDTH = 640, height = 200,
               strokeDasharray="2 4"
             />
             <text x={PAD_LEFT - 6} y={y(tick) + 3.5} textAnchor="end" fill="currentColor" fillOpacity={0.5}>
-              {formatOdds(tick)}
+              {tick}
             </text>
           </g>
         ))}
@@ -143,11 +137,11 @@ export function OddsChart({ series, limit = 5, width: WIDTH = 640, height = 200,
           </text>
         ))}
         <text x={PAD_LEFT - 6} y={PAD_TOP - 4} textAnchor="end" fill="currentColor" fillOpacity={0.5}>
-          COTE
+          PARIS
         </text>
 
         <g clipPath={`url(#${clipId})`}>
-          {/* Tracé du dernier au premier : le favori passe par-dessus. */}
+          {/* Tracé du dernier au premier : le plus soutenu passe par-dessus. */}
           {[...drawn].reverse().map((entry) => {
             const style = strokeFor(entry, drawn.indexOf(entry));
             return (
@@ -174,14 +168,14 @@ export function OddsChart({ series, limit = 5, width: WIDTH = 640, height = 200,
               <line
                 x1={x(start + span)}
                 x2={plotRight + 8}
-                y1={y(last.odds)}
+                y1={y(last.bets)}
                 y2={labelY}
                 stroke={style.stroke}
                 strokeOpacity={0.35}
               />
               <text x={plotRight + 12} y={labelY + 3.5} fontSize={11} fill="currentColor">
                 <tspan fontWeight={700} fill={style.stroke} fillOpacity={style.opacity}>
-                  {formatOdds(entry.currentOdds)}
+                  {entry.currentBets}
                 </tspan>
                 <tspan dx={6} fontWeight={500}>
                   {truncate(entry.name, 18)}
@@ -206,13 +200,13 @@ function strokeFor(entry: ProjectSeries, index: number) {
   return { stroke: "currentColor", opacity, width: index === 0 ? 2.5 : 2, dash: undefined };
 }
 
-/** Empile les étiquettes qui se recouvriraient, en gardant l'ordre des cotes. */
-function labelRows(drawn: ProjectSeries[], y: (odds: number) => number, plotHeight: number) {
+/** Empile les étiquettes qui se recouvriraient, en gardant l'ordre des courbes. */
+function labelRows(drawn: ProjectSeries[], y: (bets: number) => number, plotHeight: number) {
   const minGap = 15;
   const rows = drawn.map((entry, index) => ({
     entry,
     index,
-    labelY: y(entry.points[entry.points.length - 1].odds),
+    labelY: y(entry.points[entry.points.length - 1].bets),
   }));
 
   rows.sort((a, b) => a.labelY - b.labelY);
@@ -226,12 +220,12 @@ function labelRows(drawn: ProjectSeries[], y: (odds: number) => number, plotHeig
   return rows;
 }
 
-/** Graduations « rondes » en échelle log. */
-function oddsTicks(min: number, max: number): number[] {
-  const candidates = [1, 1.5, 2, 3, 5, 8, 12, 20, 35, 50, 75, 99];
-  const inRange = candidates.filter((value) => value >= min && value <= max);
-  if (inRange.length >= 3) return inRange;
-  return [min, Math.sqrt(min * max), max].map((value) => Math.round(value * 10) / 10);
+/** Trois ou quatre graduations entières et rondes, de zéro au maximum. */
+function betTicks(max: number): number[] {
+  const step = [1, 2, 5, 10, 20, 25, 50, 100].find((candidate) => max / candidate <= 4) ?? 100;
+  const ticks: number[] = [];
+  for (let value = 0; value <= max; value += step) ticks.push(value);
+  return ticks;
 }
 
 /** « 14:05 » sur une journée, « sam. 14:05 » au-delà. */

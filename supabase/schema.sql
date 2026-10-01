@@ -86,8 +86,15 @@ create table if not exists public.bets (
   track_id    uuid not null references public.tracks(id) on delete cascade,
   project_id  uuid not null references public.projects(id) on delete cascade,
   created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now()
+  updated_at  timestamptz not null default now(),
+  -- Points à gagner, figés au moment du pari : popularité du projet à cet
+  -- instant × bonus de rapidité. Calculés par le serveur, jamais par le client.
+  points      integer not null default 0
 );
+
+do $$ begin
+  alter table public.bets add column points integer not null default 0;
+exception when duplicate_column then null; end $$;
 
 -- Journal append-only : une ligne par pari posé ou modifié. C'est la seule
 -- source de l'évolution des cotes, `bets` n'ayant que l'état courant.
@@ -118,11 +125,17 @@ create table if not exists public.settings (
   id          integer primary key default 1 check (id = 1),
   voting_open boolean not null default false,
   -- Clôture automatique : les paris se ferment seuls à cette heure.
-  closes_at   timestamptz
+  closes_at   timestamptz,
+  -- Ouverture des paris. De opens_at à closes_at, un pari perd peu à peu de
+  -- sa valeur : 1 à l'ouverture, 0,2 à la clôture.
+  opens_at    timestamptz
 );
 
 do $$ begin
   alter table public.settings add column closes_at timestamptz;
+exception when duplicate_column then null; end $$;
+do $$ begin
+  alter table public.settings add column opens_at timestamptz;
 exception when duplicate_column then null; end $$;
 
 create index if not exists projects_track_idx on public.projects (track_id, position);

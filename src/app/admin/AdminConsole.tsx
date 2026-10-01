@@ -11,7 +11,7 @@ import { Avatar } from "@/components/Members";
 import { TrackTabs } from "@/components/TrackTabs";
 import { BRAND_TRACK_KEY } from "@/lib/tracks";
 import { useLive } from "@/lib/use-live";
-import { formatDeadline } from "@/lib/voting";
+import { formatDeadline, formatWeight, isWeighted, MIN_WEIGHT, type VotingPeriod } from "@/lib/voting";
 import type { Member, Place, Project, TrackBoard } from "@/lib/types";
 
 /**
@@ -96,6 +96,7 @@ export function AdminConsole() {
         votingOpen={live.votingOpen}
         bettingOpen={live.bettingOpen}
         closesAt={live.closesAt}
+        period={live.period}
         hasProjects={totalProjects > 0}
         hasBets={live.board.totalVoters > 0}
         busy={busy}
@@ -178,6 +179,7 @@ function VotingPanel({
   votingOpen,
   bettingOpen,
   closesAt,
+  period,
   hasProjects,
   hasBets,
   busy,
@@ -187,6 +189,7 @@ function VotingPanel({
   votingOpen: boolean;
   bettingOpen: boolean;
   closesAt: string | null;
+  period: VotingPeriod;
   hasProjects: boolean;
   hasBets: boolean;
   busy: boolean;
@@ -218,7 +221,7 @@ function VotingPanel({
           <h2 className="text-2xl font-bold tracking-tight">{bettingOpen ? "Paris ouverts" : "Paris fermés"}</h2>
           <p className="muted text-sm">{status}</p>
         </div>
-        {bettingOpen && closesAt && <Countdown closesAt={closesAt} large />}
+        {bettingOpen && closesAt && <Countdown closesAt={closesAt} period={period} large />}
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
@@ -234,12 +237,14 @@ function VotingPanel({
             onChange={(event) => setDeadline(event.target.value)}
           />
         </div>
-        <ConfirmButton
-          variant="gold"
-          label={bettingOpen && closesAt ? "Changer l'heure de fin" : "Lancer le compte à rebours"}
-          confirmLabel={`Confirmer : fin le ${deadlineValid ? formatDeadline(deadlineDate.toISOString()) : "?"}`}
+        {/* Un seul clic : l'heure choisie est écrite en toutes lettres juste
+            en dessous, et elle se corrige aussitôt si on s'est trompé. Une
+            confirmation en deux temps ici faisait croire que rien ne se passait. */}
+        <button
+          type="button"
+          className="btn btn-gold"
           disabled={busy || !hasProjects || !deadlineValid}
-          onConfirm={() =>
+          onClick={() =>
             act(
               "/api/admin/voting",
               "PATCH",
@@ -247,9 +252,23 @@ function VotingPanel({
               `Paris ouverts jusqu'au ${formatDeadline(deadlineDate.toISOString())}.`
             )
           }
-        />
+        >
+          {bettingOpen && closesAt ? "Changer l'heure de fin" : "Lancer le compte à rebours"}
+        </button>
       </div>
-      {!deadlineValid && <p className="text-sm text-red-600">Choisis une date et une heure dans le futur.</p>}
+      {deadlineValid ? (
+        <p className="muted -mt-3 text-sm">Fin des paris le {formatDeadline(deadlineDate.toISOString())}.</p>
+      ) : (
+        <p className="-mt-3 text-sm text-red-600">Choisis une date et une heure dans le futur.</p>
+      )}
+      <p className="muted text-sm">
+        Chaque pari fige ses points au moment où il est posé : plus le projet est peu soutenu, plus il
+        rapporte. Avec une heure de fin s&apos;ajoute un bonus de rapidité : un pari posé à l&apos;ouverture
+        garde 100&nbsp;% de ses points, un pari posé à la clôture {formatWeight(MIN_WEIGHT)}. Changer
+        d&apos;avis, c&apos;est reparier : les points sont recalculés à cet instant. Le 1er rapporte tous ses
+        points, le 2e la moitié, le 3e un quart.
+        {isWeighted(period) && " Déplacer l'heure de fin ne touche pas aux points déjà figés."}
+      </p>
       {!hasProjects && (
         <p className="muted text-sm">Ajoute au moins un projet ci-dessous avant d&apos;ouvrir les paris.</p>
       )}
@@ -392,14 +411,15 @@ function TrackPanel({
         </div>
         <p className="faint mt-2 text-sm">
           Chaque place s&apos;affiche aussitôt sur les téléphones et le grand écran. Laisse « personne »
-          tant que le résultat n&apos;est pas annoncé.
+          tant que le résultat n&apos;est pas annoncé : dès que le 1er est choisi, les paris de cette track
+          se ferment et chacun voit les points qu&apos;il a gagnés.
         </p>
       </div>
 
       {projects.length > 0 && (
         <div>
           <h3 className="section-title mb-3">Classement en direct</h3>
-          <Leaderboard standings={standings} />
+          <Leaderboard standings={standings} bonus={null} />
         </div>
       )}
 

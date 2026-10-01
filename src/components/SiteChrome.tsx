@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { useLive } from "@/lib/use-live";
-import { formatCountdown } from "@/lib/voting";
+import { betWeight, formatCountdown, formatWeight, isWeighted } from "@/lib/voting";
 
 /** Les onglets du site, comme « Générathons » et « Projets » sur generathon.tech. */
 const TABS = [
@@ -62,10 +62,10 @@ export function SiteHeader() {
  * Le temps restant pour parier, toujours visible dans la barre de menu :
  * une pastille à côté du bouton Admin sur ordinateur, une fine bande sous la
  * barre sur téléphone (la place y manque). Rien tant qu'aucune heure de fin
- * n'est programmée.
+ * n'est programmée. À côté, le bonus de rapidité d'un pari posé maintenant.
  */
 function HeaderTimer({ variant }: { variant: "inline" | "strip" }) {
-  const { status, bettingOpen, votingOpen, closesAt } = useLive();
+  const { status, bettingOpen, votingOpen, closesAt, period } = useLive();
   const counting = bettingOpen && closesAt !== null;
   const [now, setNow] = useState(() => Date.now());
 
@@ -81,6 +81,7 @@ function HeaderTimer({ variant }: { variant: "inline" | "strip" }) {
   if (!counting && !closed) return null;
 
   const remaining = counting ? formatCountdown(Date.parse(closesAt!) - now) : null;
+  const weight = counting && isWeighted(period) ? formatWeight(betWeight(now, period)) : null;
 
   if (variant === "inline") {
     return (
@@ -97,6 +98,17 @@ function HeaderTimer({ variant }: { variant: "inline" | "strip" }) {
             <strong className="font-bold text-gold-ink tabular-nums dark:text-gold" role="timer">
               {remaining}
             </strong>
+            {weight && (
+              <>
+                <span className="muted">· bonus</span>
+                <strong
+                  className="font-bold tabular-nums"
+                  title="Part des points qu'un pari posé maintenant rapporte"
+                >
+                  {weight}
+                </strong>
+              </>
+            )}
           </>
         ) : (
           <span className="font-semibold">Paris clos</span>
@@ -116,10 +128,17 @@ function HeaderTimer({ variant }: { variant: "inline" | "strip" }) {
       <span aria-hidden="true">⏱ </span>
       {counting ? (
         <>
-          Temps restant pour parier :{" "}
+          {/* Plus court quand la valeur du pari s'y ajoute : une seule ligne sur téléphone. */}
+          {weight ? "Fin dans" : "Temps restant pour parier :"}{" "}
           <strong className="font-bold text-gold-ink tabular-nums dark:text-gold" role="timer">
             {remaining}
           </strong>
+          {weight && (
+            <>
+              {" "}
+              · bonus <strong className="font-bold tabular-nums">{weight}</strong>
+            </>
+          )}
         </>
       ) : (
         <strong className="font-semibold">Paris clos</strong>

@@ -2,7 +2,7 @@ import "server-only";
 
 import { getAdminClient } from "@/lib/supabase/admin";
 import type { Bet, BetEvent, Member, Project, Track } from "@/lib/types";
-import type { Podium, Snapshot, Store, Voting } from "./types";
+import type { BetContext, Podium, Snapshot, Store, Voting } from "./types";
 
 /** Au-delà, on ne garde que les plus récents pour le graphe. */
 const MAX_EVENTS = 5_000;
@@ -23,9 +23,13 @@ export function createSupabaseStore(): Store {
 
   const readVoting = async (): Promise<Voting> => {
     const data = unwrap(
-      await db.from("settings").select("voting_open, closes_at").eq("id", 1).maybeSingle()
-    ) as { voting_open: boolean; closes_at: string | null } | null;
-    return { open: data?.voting_open ?? false, closesAt: data?.closes_at ?? null };
+      await db.from("settings").select("voting_open, closes_at, opens_at").eq("id", 1).maybeSingle()
+    ) as { voting_open: boolean; closes_at: string | null; opens_at: string | null } | null;
+    return {
+      open: data?.voting_open ?? false,
+      closesAt: data?.closes_at ?? null,
+      opensAt: data?.opens_at ?? null,
+    };
   };
 
   const deletePhotos = async (urls: Array<string | null>) => {
@@ -45,7 +49,7 @@ export function createSupabaseStore(): Store {
           .order("position"),
         db.from("projects").select("id, track_id, name, team, brand, position").order("position").order("name"),
         db.from("members").select("id, project_id, name, photo_url, position").order("position").order("name"),
-        db.from("bets").select("voter_id, track_id, project_id"),
+        db.from("bets").select("voter_id, track_id, project_id, updated_at, points"),
         db
           .from("bet_events")
           .select("seq, track_id, project_id, voter_id, created_at")
@@ -56,6 +60,7 @@ export function createSupabaseStore(): Store {
       return {
         votingOpen: voting.open,
         closesAt: voting.closesAt,
+        opensAt: voting.opensAt,
         tracks: (unwrap(tracksRes) as Track[]) ?? [],
         projects: (unwrap(projectsRes) as Project[]) ?? [],
         members: (unwrap(membersRes) as Member[]) ?? [],
@@ -66,8 +71,13 @@ export function createSupabaseStore(): Store {
 
     getVoting: readVoting,
 
-    async setVoting({ open, closesAt }) {
-      unwrap(await db.from("settings").update({ voting_open: open, closes_at: closesAt }).eq("id", 1));
+    async setVoting({ open, closesAt, opensAt }) {
+      unwrap(
+        await db
+          .from("settings")
+          .update({ voting_open: open, closes_at: closesAt, opens_at: opensAt })
+          .eq("id", 1)
+      );
     },
 
     async projectBelongsToTrack(projectId, trackId) {
@@ -77,14 +87,48 @@ export function createSupabaseStore(): Store {
       return data !== null;
     },
 
-    async placeBet(voterId, trackId, projectId) {
+    async betContext(voterId, trackId, projectId): Promise<BetContext> {
+      const count = async (table: "bets" | "projects", column: string, value: string, excludeVoter: boolean) => {
+        let query = db.from(table).select("id", { count: "exact", head: true }).eq(column, value);
+        if (excludeVoter) query = query.neq("voter_id", voterId);
+        const { count: n, error } = await query;
+        if (error) throw new Error(error.message);
+        return n ?? 0;
+      };
+
+      const [currentRes, trackRes, trackBettors, projectBettors, projectCount] = await Promise.all([
+        db.from("bets").select("project_id, points").eq("voter_id", voterId).eq("track_id", trackId).maybeSingle(),
+        db.from("tracks").select("first_project_id").eq("id", trackId).maybeSingle(),
+        count("bets", "track_id", trackId, true),
+        count("bets", "project_id", projectId, true),
+        count("projects", "track_id", trackId, false),
+      ]);
+      const current = unwrap(currentRes) as { project_id: string; points: number } | null;
+      const track = unwrap(trackRes) as { first_project_id: string | null } | null;
+
+      return {
+        current: current ? { projectId: current.project_id, points: current.points } : null,
+        trackBettors,
+        projectBettors,
+        projectCount,
+        decided: track?.first_project_id != null,
+      };
+    },
+
+    async placeBet(voterId, trackId, projectId, points) {
+      // Même heure des deux côtés : le pari et son entrée au journal.
+      const now = new Date().toISOString();
       unwrap(
         await db.from("bets").upsert(
-          { voter_id: voterId, track_id: trackId, project_id: projectId, updated_at: new Date().toISOString() },
+          { voter_id: voterId, track_id: trackId, project_id: projectId, updated_at: now, points },
           { onConflict: "voter_id,track_id" }
         )
       );
-      unwrap(await db.from("bet_events").insert({ track_id: trackId, project_id: projectId, voter_id: voterId }));
+      unwrap(
+        await db
+          .from("bet_events")
+          .insert({ track_id: trackId, project_id: projectId, voter_id: voterId, created_at: now })
+      );
     },
 
     async clearBets() {

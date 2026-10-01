@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { potentialPoints } from "@/lib/points";
 import { getStore } from "@/lib/store";
-import { isBettingOpen } from "@/lib/voting";
+import { betWeight, isBettingOpen } from "@/lib/voting";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,9 +55,10 @@ export async function POST(request: Request) {
     const store = await getStore();
 
     // L'heure du serveur fait foi : un téléphone à l'horloge décalée ne peut
-    // pas parier après la clôture.
+    // pas parier après la clôture, ni s'attribuer un bonus de rapidité.
     const voting = await store.getVoting();
-    if (!isBettingOpen(voting.open, voting.closesAt, Date.now())) {
+    const now = Date.now();
+    if (!isBettingOpen(voting.open, voting.closesAt, now)) {
       return NextResponse.json({ error: "Les paris sont clos." }, { status: 409 });
     }
 
@@ -70,9 +72,26 @@ export async function POST(request: Request) {
       );
     }
 
-    await store.placeBet(voterId, trackId, projectId);
+    // Les points se figent ici, avec la popularité du projet à cet instant.
+    // Re-taper son propre projet ne change rien : sinon on perdrait des
+    // points à chaque tap, le bonus de rapidité ayant baissé entre-temps.
+    const context = await store.betContext(voterId, trackId, projectId);
+    if (context.decided) {
+      return NextResponse.json({ error: "Le gagnant de cette track est annoncé : les paris y sont clos." }, { status: 409 });
+    }
+    if (context.current?.projectId === projectId) {
+      return NextResponse.json({ ok: true, points: context.current.points });
+    }
 
-    return NextResponse.json({ ok: true });
+    const points = potentialPoints(
+      context.projectBettors,
+      context.trackBettors,
+      context.projectCount,
+      betWeight(now, voting)
+    );
+    await store.placeBet(voterId, trackId, projectId, points);
+
+    return NextResponse.json({ ok: true, points });
   } catch {
     return NextResponse.json({ error: "Pari non enregistré, réessaie." }, { status: 503 });
   }
